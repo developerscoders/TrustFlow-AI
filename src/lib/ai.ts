@@ -27,5 +27,9 @@ export async function verifyEvidence(input:{evidence:string;milestone:string;des
  {role:'user',content:JSON.stringify({milestone:input.milestone,milestoneDescription:input.description,approvedAgreement:input.agreement,approvedAcceptanceCriteria:input.acceptanceCriteria,submittedEvidence:input.evidence})}
  ]});
  const raw=result.choices[0]?.message.content;if(!raw)throw new Error('AI returned an empty assessment.');
- return verificationSchema.parse(JSON.parse(raw));
+ const assessment=verificationSchema.parse(JSON.parse(raw));
+ const expected=input.acceptanceCriteria.map(x=>x.trim());const actual=assessment.criteriaResults.map(x=>x.criterion.trim());
+ if(actual.length!==expected.length||new Set(actual).size!==actual.length||expected.some(x=>!actual.includes(x)))throw new Error('AI assessment did not evaluate every approved acceptance criterion exactly once.');
+ if(assessment.status==='pass'&&assessment.criteriaResults.some(x=>x.status!=='met'))throw new Error('AI assessment status conflicts with criterion results.');
+ return assessment;
 }
