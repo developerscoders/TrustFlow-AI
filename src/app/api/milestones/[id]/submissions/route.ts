@@ -8,6 +8,7 @@ import {verifyEvidence} from '@/lib/ai';
 import {indexDealText} from '@/lib/rag';
 import {mutationError,rateLimit} from '@/lib/security';
 import {readEvidenceFile,storeEvidenceFile,validateEvidenceUrl} from '@/lib/private-storage';
+import {canSubmitEvidence} from '@/lib/workflow-authorization';
 const fileInput=z.object({name:z.string().min(1).max(200),type:z.string().max(100),base64:z.string().max(6000000)});
 const input=z.object({content:z.string().max(12000).default(''),notes:z.string().max(3000).optional(),urls:z.array(z.string().url().max(2048)).max(10).default([]),files:z.array(fileInput).max(3).default([]),revisionOfId:z.string().optional()}).refine(v=>v.content.trim().length>=10||v.urls.length>0||v.files.length>0,{message:'Provide a written description, URL, or file.'});
 async function assessSubmission(submissionId:string,milestoneId:string){
@@ -48,9 +49,9 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
  const value=input.safeParse(raw);if(!value.success)return NextResponse.json({error:value.error.issues[0]?.message||'Invalid evidence submission.'},{status:400});
  if(value.data.urls.some(url=>!validateEvidenceUrl(url)))return NextResponse.json({error:'Only public HTTP or HTTPS evidence URLs are accepted. Local/private network addresses are blocked.'},{status:400});
  const milestone=await db.milestone.findUnique({where:{id:params.id},include:{deal:{include:{agreement:true}}}});
- if(!milestone||milestone.deal.providerId!==user.id)return NextResponse.json({error:'Only the deal provider can submit evidence.'},{status:403});
+ if(!milestone)return NextResponse.json({error:'Milestone not found.'},{status:404});
  const agreement=milestone.deal.agreement;
- if(!agreement?.buyerApprovedAt||!agreement.providerApprovedAt)return NextResponse.json({error:'Both parties must approve the current agreement first.'},{status:409});
+ if(!canSubmitEvidence(user.id,milestone.deal.providerId,agreement?.buyerApprovedAt,agreement?.providerApprovedAt))return NextResponse.json({error:'Only the provider may submit evidence after both parties approve the agreement.'},{status:403});
  const approvedVersion=await db.agreementVersion.findUnique({where:{dealId_version:{dealId:milestone.dealId,version:agreement.version}}});
  if(!approvedVersion?.buyerApprovedAt||!approvedVersion.providerApprovedAt)return NextResponse.json({error:'The current approved agreement version could not be confirmed.'},{status:409});
  if(value.data.revisionOfId){const original=await db.submission.findFirst({where:{id:value.data.revisionOfId,milestoneId:milestone.id,dealId:milestone.dealId,submittedById:user.id}});if(!original)return NextResponse.json({error:'Original provider submission not found.'},{status:404});}
