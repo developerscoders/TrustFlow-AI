@@ -80,6 +80,7 @@ model AgreementVersion {
   agreementId String @db.ObjectId
   version Int
   body String
+  acceptanceCriteria String @default("[]")
   buyerApprovedAt DateTime?
   providerApprovedAt DateTime?
   createdAt DateTime @default(now())
