@@ -4,7 +4,6 @@ import {getPayPalOrder,paypalConfigured,verifyPayPalWebhook} from '@/lib/paypal'
 import {audit,notifyUsers} from '@/lib/events';
 import {sendWorkflowEmail} from '@/lib/mailer';
 import {validWebhookCapture,verifyCompletedOrder} from '@/lib/payment-verification';
-const cents=(v:unknown)=>typeof v==='string'&&/^\d+\.\d{2}$/.test(v)?Math.round(Number(v)*100):Number.NaN;
 export async function POST(req:Request){
  if(!paypalConfigured()||!process.env.PAYPAL_WEBHOOK_ID)return NextResponse.json({error:'PayPal webhook configuration required.'},{status:503});
  let event:any;try{event=await req.json()}catch{return NextResponse.json({error:'Invalid webhook JSON.'},{status:400})}
