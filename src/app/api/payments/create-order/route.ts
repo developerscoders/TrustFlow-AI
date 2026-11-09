@@ -20,11 +20,15 @@ export async function POST(req:Request){
   if(!canInitiatePayment(user.id,deal.buyerId,deal.agreement?.buyerApprovedAt,deal.agreement?.providerApprovedAt))return NextResponse.json({error:'Both parties must approve the agreement first.'},{status:409});
   if(!deal.providerId||!deal.provider?.paypalMerchantEmail)return NextResponse.json({error:'The provider must configure a PayPal receiving account before checkout. TrustFlow does not collect or hold the payment.'},{status:409});
   const existing=await db.payment.findFirst({where:{dealId:deal.id,agreementVersion:deal.agreement.version},orderBy:{createdAt:'desc'}});
-  if(existing)return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,status:existing.status,reused:true});
-  const requestKey=`trustflow-order-${deal.id}-v${deal.agreement.version}`;
+  if(existing&&existing.status!=='FAILED'&&existing.status!=='CANCELLED')return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,status:existing.status,reused:true});
+  if(existing?.status==='FAILED'&&existing.failureReason!=='PAYMENT.CAPTURE.DENIED')return NextResponse.json({error:'This PayPal attempt requires review before another charge can be initiated.'},{status:409});
+  const attempt=(existing?.attempt||0)+1;
+  const requestKey=`trustflow-order-${deal.id}-v${deal.agreement.version}-a${attempt}`;
   const order=await createPayPalOrder({dealId:deal.id,title:deal.title,amount:deal.amount,currency:deal.currency,payeeEmail:deal.provider.paypalMerchantEmail,requestId:requestKey});
   if(!order.id)throw new Error('PayPal did not return an order ID.');
-  const payment=await db.payment.create({data:{dealId:deal.id,paypalOrderId:order.id,amount:deal.amount,currency:deal.currency,status:'CREATED' ,agreementVersion:deal.agreement.version}});
+  let payment;
+  try{payment=await db.payment.create({data:{dealId:deal.id,paypalOrderId:order.id,amount:deal.amount,currency:deal.currency,status:'CREATED',agreementVersion:deal.agreement.version,attempt}})}
+  catch{const duplicate=await db.payment.findUnique({where:{paypalOrderId:order.id}});if(!duplicate)throw new Error('PayPal order was created but could not be recorded. Retry checkout.');payment=duplicate}
   await audit(deal.id,'PAYMENT_INITIATED','PayPal checkout order created.',user.name,user.id,{type:'PAYMENT',id:payment.id});
   return NextResponse.json({id:order.id,amount:payment.amount,currency:payment.currency},{status:201});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Could not create PayPal order.'},{status:502})}
