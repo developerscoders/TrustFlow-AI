@@ -88,7 +88,6 @@ model AgreementVersion {
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   agreement Agreement @relation(fields:[agreementId],references:[id],onDelete:Cascade)
   @@unique([dealId,version])
-  @@index([dealId,version])
 }
 
 model Milestone {
