@@ -229,7 +229,7 @@ model Payment {
   amount Int
   currency String
   status String @default("CREATED")
-  idempotencyKey String? @unique
+  agreementVersion Int @default(1)
   paypalPayerId String?
   failureReason String?
   createdAt DateTime @default(now())
