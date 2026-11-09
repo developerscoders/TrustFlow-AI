@@ -28,6 +28,7 @@ export async function POST(req:Request){
   }
   if(order.status==='APPROVED'){await db.payment.updateMany({where:{id:payment.id,status:'CAPTURE_PENDING'},data:{status:'APPROVED'}});return NextResponse.json({error:'PayPal has not completed the capture yet. Retry shortly.'},{status:502})}
   const capture=order.purchase_units?.[0]?.payments?.captures?.[0];
+  if(capture?.status==='PENDING'){await db.payment.updateMany({where:{id:payment.id,status:{not:'COMPLETED'}},data:{status:'CAPTURE_PENDING'}});return NextResponse.json({status:'CAPTURE_PENDING',verified:false},{status:202})}
   if(!verifyCompletedOrder(order,{orderId:payment.paypalOrderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture?.id)){
    await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:'PayPal order/capture amount, currency, reference or status verification failed.'}});
    return NextResponse.json({error:'PayPal capture verification failed.'},{status:409});
