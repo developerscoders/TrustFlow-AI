@@ -98,6 +98,7 @@ model Milestone {
   amount      Int
   position    Int
   status      String   @default("PENDING")
+  submissions Submission[]
   deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -174,6 +175,7 @@ model Submission {
   author User @relation(fields:[submittedById],references:[id])
   createdAt DateTime @default(now())
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  milestone Milestone @relation(fields:[milestoneId],references:[id],onDelete:Cascade)
   assessments Assessment[]
   urls String[] @default([])
   fileMetadata String?
