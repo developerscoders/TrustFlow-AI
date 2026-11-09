@@ -6,6 +6,7 @@ import {capturePayPalOrder,getPayPalOrder,paypalConfigured} from '@/lib/paypal';
 import {audit,notifyUsers} from '@/lib/events';
 import {sendWorkflowEmail} from '@/lib/mailer';
 import {mutationError,rateLimit} from '@/lib/security';
+import {verifyCompletedOrder} from '@/lib/payment-verification';
 const input=z.object({orderId:z.string().min(1).max(200)});
 const money=(value:unknown)=>typeof value==='string'&&/^\d+\.\d{2}$/.test(value)?Math.round(Number(value)*100):Number.NaN;
 export async function POST(req:Request){
@@ -29,7 +30,7 @@ export async function POST(req:Request){
    capture=order.purchase_units?.[0]?.payments?.captures?.[0];
   }
   const unit=order.purchase_units?.find((x:any)=>x.custom_id===payment.dealId||x.reference_id===payment.dealId);
-  if(order.id!==payment.paypalOrderId||order.status!=='COMPLETED'||!unit||!capture||capture.status!=='COMPLETED'||capture.id==null||unit.amount?.currency_code!==payment.currency||money(unit.amount?.value)!==payment.amount||capture.amount?.currency_code!==payment.currency||money(capture.amount?.value)!==payment.amount){
+  if(!verifyCompletedOrder(order,{orderId:payment.paypalOrderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture?.id)){
    await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:'PayPal order/capture amount, currency, reference or status verification failed.'}});
    return NextResponse.json({error:'PayPal capture verification failed.'},{status:409});
   }
