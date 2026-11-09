@@ -27,6 +27,7 @@ export async function POST(req:Request){
   }else if(order.status!=='COMPLETED'){
    return NextResponse.json({error:'PayPal order has not been approved yet.'},{status:409});
   }
+  if(order.status==='APPROVED'){await db.payment.updateMany({where:{id:payment.id,status:'CAPTURE_PENDING'},data:{status:'APPROVED'}});return NextResponse.json({error:'PayPal has not completed the capture yet. Retry shortly.'},{status:502})}
   const capture=order.purchase_units?.[0]?.payments?.captures?.[0];
   if(!verifyCompletedOrder(order,{orderId:payment.paypalOrderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture?.id)){
    await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:'PayPal order/capture amount, currency, reference or status verification failed.'}});
@@ -45,7 +46,7 @@ export async function POST(req:Request){
   return NextResponse.json({status:'COMPLETED',verified:true});
  }catch(error){
   const latest=await db.payment.findUnique({where:{id:payment.id}});if(latest?.status==='COMPLETED')return NextResponse.json({status:'COMPLETED',verified:true});
-  await db.payment.updateMany({where:{id:payment.id,status:'CAPTURE_PENDING'},data:{status:'FAILED',failureReason:error instanceof Error?error.message:'Capture verification failed'}});
+  await db.payment.updateMany({where:{id:payment.id,status:'CAPTURE_PENDING'},data:{status:'APPROVED',failureReason:error instanceof Error?error.message:'Capture verification temporarily unavailable'}});
   return NextResponse.json({error:'PayPal capture could not be verified. You can retry safely.'},{status:502});
  }
 }
