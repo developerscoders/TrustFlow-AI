@@ -5,6 +5,7 @@ import {db} from '@/lib/db';
 import {createPayPalOrder,paypalConfigured} from '@/lib/paypal';
 import {audit} from '@/lib/events';
 import {mutationError,rateLimit} from '@/lib/security';
+import {canInitiatePayment} from '@/lib/workflow-authorization';
 const input=z.object({dealId:z.string().min(1).max(100)});
 export async function POST(req:Request){
  const invalid=mutationError(req);if(invalid)return invalid;
@@ -16,7 +17,7 @@ export async function POST(req:Request){
  try{
   const deal=await db.deal.findFirst({where:{id:value.data.dealId,buyerId:user.id},include:{agreement:true}});
   if(!deal)return NextResponse.json({error:'Deal not found or you are not the buyer.'},{status:404});
-  if(!deal.agreement?.buyerApprovedAt||!deal.agreement.providerApprovedAt)return NextResponse.json({error:'Both parties must approve the agreement first.'},{status:409});
+  if(!canInitiatePayment(user.id,deal.buyerId,deal.agreement?.buyerApprovedAt,deal.agreement?.providerApprovedAt))return NextResponse.json({error:'Both parties must approve the agreement first.'},{status:409});
   if(!deal.providerId)return NextResponse.json({error:'A registered provider is required.'},{status:409});
   const existing=await db.payment.findFirst({where:{dealId:deal.id,agreementVersion:deal.agreement.version},orderBy:{createdAt:'desc'}});
   if(existing)return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,status:existing.status,reused:true});
