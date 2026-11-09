@@ -14,9 +14,9 @@ export async function PATCH(req:Request,{params}:{params:{id:string}}){
  const deal=await db.deal.findFirst({where:{id:params.id,buyerId:user.id},include:{agreement:true}});
  if(!deal?.agreement)return NextResponse.json({error:'Deal or agreement not found.'},{status:404});
  const current=deal.agreement;
- await db.agreementVersion.upsert({where:{dealId_version:{dealId:deal.id,version:current.version}},create:{dealId:deal.id,agreementId:current.id,version:current.version,body:current.body,buyerApprovedAt:current.buyerApprovedAt,providerApprovedAt:current.providerApprovedAt},update:{}});
+ await db.agreementVersion.upsert({where:{dealId_version:{dealId:deal.id,version:current.version}},create:{dealId:deal.id,agreementId:current.id,version:current.version,body:current.body,acceptanceCriteria:JSON.stringify(criteriaFromBody(current.body)),buyerApprovedAt:current.buyerApprovedAt,providerApprovedAt:current.providerApprovedAt},update:{}});
  const agreement=await db.agreement.update({where:{dealId:deal.id},data:{body:value.data.body,version:{increment:1},buyerApprovedAt:null,providerApprovedAt:null,buyerApproverId:null,providerApproverId:null}});
- await db.agreementVersion.create({data:{dealId:deal.id,agreementId:agreement.id,version:agreement.version,body:agreement.body}});
+ await db.agreementVersion.create({data:{dealId:deal.id,agreementId:agreement.id,version:agreement.version,body:agreement.body,acceptanceCriteria:JSON.stringify(criteriaFromBody(agreement.body))}});
  await audit(deal.id,'AGREEMENT_VERSION_UPDATED',`Agreement updated to version ${agreement.version}; both parties must approve this version.`,user.name,user.id,{type:'AGREEMENT',id:agreement.id});
  if(deal.providerId)await notifyUsers([deal.providerId],deal.id,'Agreement approval required',`Agreement version ${agreement.version} needs your approval.`,'AGREEMENT');
  void indexDealText({dealId:deal.id,ownerId:user.id,participantIds:[deal.buyerId,...(deal.providerId?[deal.providerId]:[])],sourceType:'AGREEMENT_DRAFT',sourceId:`${agreement.id}-v${agreement.version}`,title:`${deal.title} agreement v${agreement.version}`,text:agreement.body,agreementVersion:agreement.version}).catch(()=>null);
