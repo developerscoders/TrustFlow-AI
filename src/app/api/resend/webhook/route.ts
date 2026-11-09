@@ -1,17 +1,11 @@
 import {NextResponse} from 'next/server';
-import {createHmac,timingSafeEqual} from 'node:crypto';
 import {db} from '@/lib/db';
 import {audit,notifyUsers} from '@/lib/events';
-function valid(raw:string,id:string,at:string,signature:string,secret:string){
- try{
-  const key=Buffer.from(secret.replace(/^whsec_/,''),'base64'),mac=createHmac('sha256',key).update(`${id}.${at}.${raw}`).digest('base64');
-  return signature.split(' ').some(part=>{const [version,value]=part.split(',');if(version!=='v1'||!value)return false;const supplied=Buffer.from(value),expected=Buffer.from(mac);return supplied.length===expected.length&&timingSafeEqual(supplied,expected)});
- }catch{return false}
-}
+import {verifyResendWebhookSignature} from '@/lib/resend-webhook';
 const rank:Record<string,number>={QUEUED:0,FAILED:0,SENT:1,DELIVERED:2,OPENED:3,CLICKED:4,BOUNCED:5};
 export async function POST(req:Request){
  const raw=await req.text(),id=req.headers.get('svix-id')||'',at=req.headers.get('svix-timestamp')||'',signature=req.headers.get('svix-signature')||'',secret=process.env.RESEND_WEBHOOK_SECRET,timestamp=Number(at);
- if(!secret||!id||!at||!signature||!Number.isFinite(timestamp)||Math.abs(Date.now()/1000-timestamp)>300||!valid(raw,id,at,signature,secret))return NextResponse.json({error:'Invalid webhook signature.'},{status:400});
+ if(!secret||!verifyResendWebhookSignature({rawBody:raw,id,timestamp:at,signature,secret}))return NextResponse.json({error:'Invalid webhook signature.'},{status:400});
  try{
   const payload=JSON.parse(raw) as {type?:unknown;data?:{email_id?:unknown;id?:unknown}};
   if(typeof payload.type!=='string')return NextResponse.json({error:'Malformed webhook event.'},{status:400});
