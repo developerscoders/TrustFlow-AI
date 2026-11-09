@@ -16,7 +16,6 @@ model User {
   buyerDeals    Deal[]    @relation("BuyerDeals")
   providerDeals Deal[]    @relation("ProviderDeals")
   submissions Submission[]
-  assessments Assessment[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -49,6 +48,7 @@ model Deal {
   milestones   Milestone[]
   activities   Activity[]
   submissions Submission[]
+  assessments Assessment[]
   notifications Notification[]
   emailLogs EmailLog[]
   payments Payment[]
