@@ -7,7 +7,7 @@ export async function GET(req:Request){
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  const parsed=query.safeParse(Object.fromEntries(new URL(req.url).searchParams));if(!parsed.success)return NextResponse.json({error:'Invalid notification query.'},{status:400});
  const {cursor,unread,limit}=parsed.data,where={userId:user.id,...(unread==='true'?{readAt:null}:{})};
- if(cursor){const anchor=await db.notification.findFirst({where:{id:cursor,userId:user.id},select:{id:true}});if(!anchor)return NextResponse.json({error:'Invalid notification cursor.'},{status:400});}
+ if(cursor){const anchor=await db.notification.findFirst({where:{id:cursor,...where},select:{id:true}});if(!anchor)return NextResponse.json({error:'Invalid notification cursor.'},{status:400});}
  const [rows,unreadCount]=await Promise.all([
   db.notification.findMany({where,include:{deal:{select:{title:true}}},orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,...(cursor?{skip:1,cursor:{id:cursor}}:{})}),
   db.notification.count({where:{userId:user.id,readAt:null}})
