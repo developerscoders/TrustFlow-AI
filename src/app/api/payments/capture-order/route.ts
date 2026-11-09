@@ -20,15 +20,14 @@ export async function POST(req:Request){
  if(!payment||payment.deal.buyerId!==user.id)return NextResponse.json({error:'Payment order not found.'},{status:404});
  if(payment.status==='COMPLETED')return NextResponse.json({status:'COMPLETED',verified:true});
  try{
-  await db.payment.updateMany({where:{id:payment.id,status:{in:['CREATED','APPROVED','CAPTURE_PENDING']}},data:{status:'CAPTURE_PENDING'}});
   let order=await getPayPalOrder(payment.paypalOrderId);
-  let capture=order.purchase_units?.[0]?.payments?.captures?.[0];
-  if(order.status!=='COMPLETED'||!capture){
-   try{order=await capturePayPalOrder(payment.paypalOrderId,`trustflow-capture-${payment.id}`)}catch{
-    order=await getPayPalOrder(payment.paypalOrderId);
-   }
-   capture=order.purchase_units?.[0]?.payments?.captures?.[0];
+  if(order.status==='APPROVED'){
+   await db.payment.updateMany({where:{id:payment.id,status:{in:['CREATED','APPROVED','CAPTURE_PENDING']}},data:{status:'CAPTURE_PENDING'}});
+   try{order=await capturePayPalOrder(payment.paypalOrderId,'trustflow-capture-'+payment.id)}catch{order=await getPayPalOrder(payment.paypalOrderId)}
+  }else if(order.status!=='COMPLETED'){
+   return NextResponse.json({error:'PayPal order has not been approved yet.'},{status:409});
   }
+  const capture=order.purchase_units?.[0]?.payments?.captures?.[0];
   if(!verifyCompletedOrder(order,{orderId:payment.paypalOrderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture?.id)){
    await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:'PayPal order/capture amount, currency, reference or status verification failed.'}});
    return NextResponse.json({error:'PayPal capture verification failed.'},{status:409});
