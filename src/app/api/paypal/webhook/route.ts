@@ -21,12 +21,11 @@ export async function POST(req:Request){
   if(event.event_type==='PAYMENT.CAPTURE.COMPLETED'){
    const capture=event.resource;
    const orderId=capture?.supplementary_data?.related_ids?.order_id;
-   if(!orderId||!validWebhookCapture(event,{orderId,dealId:'',amount:0,currency:capture?.amount?.currency_code}))throw new Error('Capture event is missing a completed order reference or valid amount.');
+   if(!orderId||capture?.status!=='COMPLETED'||typeof capture.id!=='string')throw new Error('Capture event is missing a completed order reference.');
    const payment=await db.payment.findUnique({where:{paypalOrderId:orderId},include:{deal:true}});
    if(!payment)throw new Error('Payment order not found for capture event.');
    const order=await getPayPalOrder(orderId);
    const unit=order.purchase_units?.find((x:any)=>x.custom_id===payment.dealId||x.reference_id===payment.dealId);
-   const orderCapture=unit?.payments?.captures?.find((x:any)=>x.id===capture.id);
    if(!validWebhookCapture(event,{orderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency})||!verifyCompletedOrder(order,{orderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture.id))throw new Error('Capture amount, currency, order reference or status did not reconcile.');
    const changed=await db.payment.updateMany({where:{id:payment.id,status:{not:'COMPLETED'}},data:{status:'COMPLETED',captureId:capture.id,paypalPayerId:order.payer?.payer_id||null,failureReason:null}});
    if(changed.count){
