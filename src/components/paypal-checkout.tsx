@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 declare global {interface Window {paypal?:{Buttons:(config:Record<string,any>)=>{render:(node:HTMLElement)=>Promise<void>|void}}}}
 type CheckoutState='loading'|'ready'|'processing'|'missing'|'error';
 export function PayPalCheckout({dealId,onVerified}:{dealId:string;onVerified:()=>void}){
- const host=useRef<HTMLDivElement>(null),mounted=useRef(true);
+ const host=useRef<HTMLDivElement>(null),mounted=useRef(true),onVerifiedRef=useRef(onVerified);onVerifiedRef.current=onVerified;
  const [state,setState]=useState<CheckoutState>('loading'),[message,setMessage]=useState('');
  useEffect(()=>{
   mounted.current=true;
@@ -27,7 +27,7 @@ export function PayPalCheckout({dealId,onVerified}:{dealId:string;onVerified:()=
        const response=await fetch('/api/payments/capture-order',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({orderId:data.orderID})});
        const result=await response.json();
        if(!response.ok||result.status!=='COMPLETED'||result.verified!==true)throw new Error(result.error||'Payment could not be verified.');
-       if(mounted.current){setMessage('Payment verified by PayPal.');setState('ready');onVerified()}
+       if(mounted.current){setMessage('Payment verified by PayPal.');setState('ready');onVerifiedRef.current()}
       }catch(error){if(mounted.current){setState('error');setMessage(error instanceof Error?error.message:'Payment verification failed. Retry from the checkout button.')}}
      },
      onCancel:()=>{if(mounted.current){setState('ready');setMessage('Checkout was cancelled. No payment was recorded as completed.')}},
@@ -43,7 +43,7 @@ export function PayPalCheckout({dealId,onVerified}:{dealId:string;onVerified:()=
    const script=document.createElement('script');script.dataset.paypalSdk='true';script.src='https://www.paypal.com/sdk/js?client-id='+encodeURIComponent(client)+'&currency=USD&intent=capture';script.onload=()=>void boot();script.onerror=()=>{if(mounted.current){setState('error');setMessage('PayPal SDK failed to load.')}};document.head.appendChild(script);
   }
   return ()=>{mounted.current=false};
- },[dealId,onVerified]);
+ },[dealId]);
  if(state==='missing')return <p className="dealmeta">PayPal checkout is not configured. Set PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and NEXT_PUBLIC_PAYPAL_CLIENT_ID for Sandbox.</p>;
  return <div><div ref={host}/>{state==='loading'&&<p className="dealmeta">Loading PayPal Sandbox checkout…</p>}{state==='processing'&&<p className="dealmeta">{message||'Verifying payment…'}</p>}{message&&state!=='processing'&&<p className={state==='error'?'error':'dealmeta'}>{message}</p>}{state==='error'&&<button type="button" className="secondary" onClick={()=>{setMessage('Reload the deal page to restart checkout.');}}>Checkout help</button>}</div>;
 }
