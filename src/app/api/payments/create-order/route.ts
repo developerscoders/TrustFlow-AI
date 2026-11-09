@@ -14,16 +14,16 @@ export async function POST(req:Request){
  let body:unknown;try{body=await req.json()}catch{return NextResponse.json({error:'Invalid JSON.'},{status:400})}
  const value=input.safeParse(body);if(!value.success)return NextResponse.json({error:'Invalid deal.'},{status:400});
  try{
-  const deal=await db.deal.findFirst({where:{id:value.data.dealId,buyerId:user.id},include:{agreement:true,payments:{where:{status:{in:['CREATED','APPROVED','CAPTURE_PENDING']}},orderBy:{createdAt:'desc'}}}});
+  const deal=await db.deal.findFirst({where:{id:value.data.dealId,buyerId:user.id},include:{agreement:true}});
   if(!deal)return NextResponse.json({error:'Deal not found or you are not the buyer.'},{status:404});
   if(!deal.agreement?.buyerApprovedAt||!deal.agreement.providerApprovedAt)return NextResponse.json({error:'Both parties must approve the agreement first.'},{status:409});
   if(!deal.providerId)return NextResponse.json({error:'A registered provider is required.'},{status:409});
-  const existing=deal.payments[0];
-  if(existing)return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,reused:true});
+  const existing=await db.payment.findFirst({where:{dealId:deal.id,agreementVersion:deal.agreement.version},orderBy:{createdAt:'desc'}});
+  if(existing)return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,status:existing.status,reused:true});
   const requestKey=`trustflow-order-${deal.id}-v${deal.agreement.version}`;
   const order=await createPayPalOrder({dealId:deal.id,title:deal.title,amount:deal.amount,currency:deal.currency,requestId:requestKey});
   if(!order.id)throw new Error('PayPal did not return an order ID.');
-  const payment=await db.payment.create({data:{dealId:deal.id,paypalOrderId:order.id,amount:deal.amount,currency:deal.currency,status:'CREATED',idempotencyKey:requestKey}});
+  const payment=await db.payment.create({data:{dealId:deal.id,paypalOrderId:order.id,amount:deal.amount,currency:deal.currency,status:'CREATED' ,agreementVersion:deal.agreement.version}});
   await audit(deal.id,'PAYMENT_INITIATED','PayPal checkout order created.',user.name,user.id,{type:'PAYMENT',id:payment.id});
   return NextResponse.json({id:order.id,amount:payment.amount,currency:payment.currency},{status:201});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Could not create PayPal order.'},{status:502})}
