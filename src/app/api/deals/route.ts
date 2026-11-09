@@ -31,6 +31,7 @@ export async function POST(req:Request){
       agreement:{create:{body:agreementBody}},
       activities:{create:[{type:'DEAL_CREATED',message:'Deal created.',actor:user.name,actorId:user.id},{type:'AI_ANALYSIS_COMPLETED',message:'AI deal analysis completed.',actor:'TrustFlow AI'},{type:'AGREEMENT_GENERATED',message:'Agreement version 1 generated.',actor:'TrustFlow AI'}]}
     },include:{milestones:true,agreement:true}});
+    await db.agreementVersion.create({data:{dealId:deal.id,agreementId:deal.agreement!.id,version:1,body:agreementBody}});
     await notifyUsers([provider.id],deal.id,'Deal invitation',`${user.name} invited you to ${deal.title}.`,'INVITATION');
     void sendWorkflowEmail({dealId:deal.id,to:provider.email,type:'DEAL_INVITATION',dealTitle:deal.title,message:`${user.name} invited you to review this deal.`,key:`invite-${deal.id}-${provider.id}`});
     void indexDealText({dealId:deal.id,ownerId:user.id,participantIds:[user.id,provider.id],sourceType:'AGREEMENT',sourceId:deal.agreement!.id,title:`${deal.title} agreement`,text:agreementBody,agreementVersion:1}).catch(()=>null);
