@@ -51,6 +51,7 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
  const milestone=await db.milestone.findUnique({where:{id:params.id},include:{deal:{include:{agreement:true}}}});
  if(!milestone)return NextResponse.json({error:'Milestone not found.'},{status:404});
  const agreement=milestone.deal.agreement;
+ if(!agreement)return NextResponse.json({error:'An agreement must exist before evidence can be submitted.'},{status:409});
  if(!canSubmitEvidence(user.id,milestone.deal.providerId,agreement?.buyerApprovedAt,agreement?.providerApprovedAt))return NextResponse.json({error:'Only the provider may submit evidence after both parties approve the agreement.'},{status:403});
  const approvedVersion=await db.agreementVersion.findUnique({where:{dealId_version:{dealId:milestone.dealId,version:agreement.version}}});
  if(!approvedVersion?.buyerApprovedAt||!approvedVersion.providerApprovedAt)return NextResponse.json({error:'The current approved agreement version could not be confirmed.'},{status:409});
