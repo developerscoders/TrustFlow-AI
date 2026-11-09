@@ -176,7 +176,7 @@ model Submission {
   createdAt DateTime @default(now())
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   milestone Milestone @relation(fields:[milestoneId],references:[id],onDelete:Cascade)
-  assessments Assessment[]
+  assessmentRecord Assessment?
   urls String[] @default([])
   fileMetadata String?
   notes String?
@@ -188,7 +188,7 @@ model Submission {
 model Assessment {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   dealId String @db.ObjectId
-  submissionId String @db.ObjectId
+  submissionId String @unique @db.ObjectId
   milestoneId String @db.ObjectId
   agreementVersion Int
   overallScore Int
@@ -203,7 +203,7 @@ model Assessment {
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   submission Submission @relation(fields:[submissionId],references:[id],onDelete:Cascade)
   @@index([dealId,createdAt])
-  @@index([submissionId,createdAt])
+  @@index([submissionId])
 }
 model KnowledgeChunk {
   id String @id @default(auto()) @map("_id") @db.ObjectId
