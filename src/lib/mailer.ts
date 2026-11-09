@@ -14,16 +14,17 @@ export async function sendDealEmail(input:EmailInput){
  let log=await db.emailLog.findUnique({where:{idempotencyKey:input.key}});
  if(log&&(log.status==='SENT'||log.status==='DELIVERED'||log.status==='OPENED'||log.status==='CLICKED'))return {ok:true,status:log.status,duplicate:true} as const;
  if(!log){
-  try{log=await db.emailLog.create({data:{dealId:input.dealId,toEmail:to,type:input.type,idempotencyKey:input.key,status:'QUEUED'}})}
+  try{log=await db.emailLog.create({data:{dealId:input.dealId,toEmail:to,type:input.type,idempotencyKey:input.key,status:'QUEUED',payload:JSON.stringify({title:input.title,message:input.message,html:input.html||null})}})}
   catch{log=await db.emailLog.findUnique({where:{idempotencyKey:input.key}});if(!log)return {ok:false,status:'FAILED',reason:'Could not persist email attempt'} as const}
  }
  if(log.toEmail.toLowerCase()!==to||log.dealId!==input.dealId||log.type!==input.type)return {ok:false,status:'FAILED',reason:'Email idempotency key conflict'} as const;
+ let title=input.title,message=input.message,html=input.html;try{const saved=JSON.parse(log.payload||'{}') as {title?:string;message?:string;html?:string|null};if(saved.title)title=saved.title;if(saved.message)message=saved.message;if(saved.html)html=saved.html}catch{}
  if(!process.env.RESEND_API_KEY||!process.env.EMAIL_FROM){
   await db.emailLog.update({where:{id:log.id},data:{status:'FAILED',attempts:{increment:1},lastError:'Resend configuration required',nextAttemptAt:null}});
   return {ok:false,status:'FAILED',reason:'Resend configuration required'} as const;
  }
  try{
-  const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':input.key},body:JSON.stringify({from:process.env.EMAIL_FROM,to:[to],subject:input.title,html:input.html||fallbackHtml(input.title,input.message,input.dealId)})});
+  const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':input.key},body:JSON.stringify({from:process.env.EMAIL_FROM,to:[to],subject:title,html:html||fallbackHtml(title,message,input.dealId)})});
   const value=await response.json() as {id?:string};
   if(!response.ok||!value.id)throw new Error('Resend request failed');
   await db.emailLog.update({where:{id:log.id},data:{status:'SENT',resendId:value.id,attempts:{increment:1},lastError:null,nextAttemptAt:null}});
