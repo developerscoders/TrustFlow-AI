@@ -1,11 +1,6 @@
-import {createHmac,timingSafeEqual} from 'node:crypto';
+import {Webhook} from 'svix';
 export function verifyResendWebhookSignature(input:{rawBody:string;id:string;timestamp:string;signature:string;secret:string;nowSeconds?:number}){
- const {rawBody,id,timestamp,signature,secret}=input,now=input.nowSeconds??Date.now()/1000,seconds=Number(timestamp);
+ const {rawBody,id,timestamp,signature,secret}=input,seconds=Number(timestamp),now=input.nowSeconds??Date.now()/1000;
  if(!id||!timestamp||!signature||!secret||!Number.isFinite(seconds)||Math.abs(now-seconds)>300)return false;
- try{
-  const key=Buffer.from(secret.replace(/^whsec_/,''),'base64');
-  if(!key.length)return false;
-  const expected=Buffer.from(createHmac('sha256',key).update(`${id}.${timestamp}.${rawBody}`).digest('base64'));
-  return signature.split(' ').some(part=>{const [version,value]=part.split(',');if(version!=='v1'||!value)return false;const supplied=Buffer.from(value);return supplied.length===expected.length&&timingSafeEqual(supplied,expected)});
- }catch{return false}
+ try{new Webhook(secret).verify(rawBody,{'svix-id':id,'svix-timestamp':timestamp,'svix-signature':signature});return true}catch{return false}
 }
