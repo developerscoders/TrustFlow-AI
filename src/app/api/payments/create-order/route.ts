@@ -17,6 +17,7 @@ export async function POST(req:Request){
  try{
   const deal=await db.deal.findFirst({where:{id:value.data.dealId,buyerId:user.id},include:{agreement:true,provider:{select:{paypalMerchantEmail:true}}}});
   if(!deal)return NextResponse.json({error:'Deal not found or you are not the buyer.'},{status:404});
+  if(!deal.agreement)return NextResponse.json({error:'An agreement must exist before checkout.'},{status:409});
   if(!canInitiatePayment(user.id,deal.buyerId,deal.agreement?.buyerApprovedAt,deal.agreement?.providerApprovedAt))return NextResponse.json({error:'Both parties must approve the agreement first.'},{status:409});
   if(!deal.providerId||!deal.provider?.paypalMerchantEmail)return NextResponse.json({error:'The provider must configure a PayPal receiving account before checkout. TrustFlow does not collect or hold the payment.'},{status:409});
   const existing=await db.payment.findFirst({where:{dealId:deal.id,agreementVersion:deal.agreement.version},orderBy:{createdAt:'desc'}});
