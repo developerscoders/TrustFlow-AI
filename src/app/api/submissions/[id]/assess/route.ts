@@ -37,7 +37,7 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
   const participants=[submission.deal.buyerId,...(submission.deal.providerId?[submission.deal.providerId]:[])];
   await notifyUsers(participants,submission.dealId,'Assessment completed','A retried advisory AI assessment is ready for review.','ASSESSMENT');
   const recipients=await db.user.findMany({where:{id:{in:participants}}});
-  for(const recipient of recipients)void sendWorkflowEmail({dealId:submission.dealId,to:recipient.email,type:'ASSESSMENT_RESULT',dealTitle:submission.deal.title,message:'An advisory assessment is ready for review.',key:'assessment-'+saved.id+'-'+recipient.id});
+  for(const recipient of recipients)void sendWorkflowEmail({dealId:submission.dealId,to:recipient.email,type:'ASSESSMENT_RESULT',dealTitle:submission.deal.title,message:'An advisory assessment is ready for review.',key:'assessment-'+saved.id+'-'+recipient.id}).catch(()=>null);
   return NextResponse.json({status:'ASSESSED',assessment,assessmentId:saved.id});
  }catch(error){
   await db.submission.update({where:{id:submission.id},data:{status:'ASSESSMENT_FAILED'}});
