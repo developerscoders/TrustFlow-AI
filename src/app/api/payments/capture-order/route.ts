@@ -29,7 +29,6 @@ export async function POST(req:Request){
    }
    capture=order.purchase_units?.[0]?.payments?.captures?.[0];
   }
-  const unit=order.purchase_units?.find((x:any)=>x.custom_id===payment.dealId||x.reference_id===payment.dealId);
   if(!verifyCompletedOrder(order,{orderId:payment.paypalOrderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture?.id)){
    await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:'PayPal order/capture amount, currency, reference or status verification failed.'}});
    return NextResponse.json({error:'PayPal capture verification failed.'},{status:409});
@@ -46,6 +45,7 @@ export async function POST(req:Request){
   }
   return NextResponse.json({status:'COMPLETED',verified:true});
  }catch(error){
+  const latest=await db.payment.findUnique({where:{id:payment.id}});if(latest?.status==='COMPLETED')return NextResponse.json({status:'COMPLETED',verified:true});
   await db.payment.updateMany({where:{id:payment.id,status:'CAPTURE_PENDING'},data:{status:'FAILED',failureReason:error instanceof Error?error.message:'Capture verification failed'}});
   return NextResponse.json({error:'PayPal capture could not be verified. You can retry safely.'},{status:502});
  }
