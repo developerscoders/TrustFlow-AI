@@ -1,4 +1,4 @@
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 
 const apiBase=()=>process.env.PAYPAL_ENV==='live'?'https://api-m.paypal.com':'https://api-m.sandbox.paypal.com';
 export const paypalConfigured=()=>Boolean(process.env.PAYPAL_CLIENT_ID&&process.env.PAYPAL_CLIENT_SECRET);
@@ -22,7 +22,7 @@ export async function paypalRequest<T=any>(path:string,method='GET',body?:unknow
  return data as T;
 }
 export async function createPayPalOrder(input:{dealId:string;title:string;amount:number;currency:string;requestId?:string}){
- return paypalRequest<{id:string;status:string}>('/v2/checkout/orders','POST',{intent:'CAPTURE',purchase_units:[{reference_id:input.dealId,custom_id:input.dealId,description:input.title.slice(0,127),amount:{currency_code:input.currency,value:(input.amount/100).toFixed(2)}}]},input.requestId||randomUUID());
+ const requestId=createHash('sha256').update(input.requestId||randomUUID()).digest('hex').slice(0,32);\n return paypalRequest<{id:string;status:string}>('/v2/checkout/orders','POST',{intent:'CAPTURE',purchase_units:[{reference_id:input.dealId,custom_id:input.dealId,description:input.title.slice(0,127),amount:{currency_code:input.currency,value:(input.amount/100).toFixed(2)}}]},requestId);
 }
 export async function capturePayPalOrder(orderId:string,requestId:string){
  return paypalRequest<any>(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,'POST',{},requestId);
