@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  email         String    @unique
+  passwordHash  String
+  sessions      Session[]
+  buyerDeals    Deal[]    @relation("BuyerDeals")
+  providerDeals Deal[]    @relation("ProviderDeals")
+  submissions Submission[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Session {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash String   @unique
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Deal {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  title        String
+  description  String
+  amount       Int
+  currency     String      @default("USD")
+  buyerName    String
+  providerName String
+  buyerId      String      @db.ObjectId
+  providerId   String?     @db.ObjectId
+  buyer        User        @relation("BuyerDeals", fields: [buyerId], references: [id])
+  provider     User?       @relation("ProviderDeals", fields: [providerId], references: [id])
+  status       String      @default("DRAFT")
+  dueDate      DateTime?
+  analysis     String?
+  agreement    Agreement?
+  milestones   Milestone[]
+  activities   Activity[]
+  submissions Submission[]
+  notifications Notification[]
+  emailLogs EmailLog[]
+  payments Payment[]
+  chunks KnowledgeChunk[]
+  disputes Dispute[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Agreement {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  dealId             String    @unique @db.ObjectId
+  body               String
+  buyerApprovedAt    DateTime?
+  providerApprovedAt DateTime?
+  buyerApproverId    String?   @db.ObjectId
+  providerApproverId String?   @db.ObjectId
+  version            Int       @default(1)
+  deal               Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model Milestone {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  dealId      String   @db.ObjectId
+  title       String
+  description String
+  amount      Int
+  position    Int
+  status      String   @default("PENDING")
+  deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([dealId, position])
+}
+
+model Activity {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  dealId    String   @db.ObjectId
+  type      String
+  message   String
+  actor     String
+  actorId   String?  @db.ObjectId
+  entityType String?
+  entityId String?
+  metadata String?
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([dealId, createdAt])
+}
+
+model Notification {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  dealId String? @db.ObjectId
+  title String
+  message String
+  type String
+  readAt DateTime?
+  createdAt DateTime @default(now())
+  deal Deal? @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  @@index([userId,readAt,createdAt])
+}
+model EmailLog {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  toEmail String
+  type String
+  resendId String?
+  idempotencyKey String @unique
+  status String @default("QUEUED")
+  attempts Int @default(0)
+  lastError String?
+  nextAttemptAt DateTime?
+  openedAt DateTime?
+  clickedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  @@index([dealId,createdAt])
+  @@index([resendId])
+}
+model WebhookEvent {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  providerEventId String @unique
+  type String
+  createdAt DateTime @default(now())
+}
+model Submission {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  milestoneId String @db.ObjectId
+  submittedById String @db.ObjectId
+  content String
+  assessment String?
+  revisionOfId String? @db.ObjectId
+  agreementVersion Int @default(1)
+  author User @relation(fields:[submittedById],references:[id])
+  createdAt DateTime @default(now())
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  @@index([dealId,createdAt])
+}
+model KnowledgeChunk {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  ownerId String @db.ObjectId
+  participantIds String[] @db.ObjectId
+  sourceType String
+  sourceId String
+  title String
+  content String
+  embedding Float[]
+  contentHash String @unique
+  agreementVersion Int?
+  chunkIndex Int
+  visibility String @default("PARTICIPANTS")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  @@index([dealId,sourceType])
+}
+model Payment {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  paypalOrderId String @unique
+  captureId String? @unique
+  amount Int
+  currency String
+  status String @default("CREATED")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  @@index([dealId,status])
+}
+model Dispute {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  openedById String @db.ObjectId
+  reason String
+  status String @default("OPEN")
+  createdAt DateTime @default(now())
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  @@index([dealId,status])
+}

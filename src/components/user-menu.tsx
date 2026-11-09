@@ -1,0 +1,3 @@
+'use client';
+import {useEffect,useState} from 'react';import {LogOut} from 'lucide-react';
+export function UserMenu(){const [user,setUser]=useState<{name:string;email:string}|null>(null);useEffect(()=>{fetch('/api/auth/me',{credentials:'include'}).then(r=>r.ok?r.json():null).then(setUser).catch(()=>null)},[]);async function logout(){await fetch('/api/auth/logout',{method:'POST',credentials:'include'});location.assign('/login')}return <div style={{display:'flex',alignItems:'center',gap:8}}>{user&&<div className="dealmeta" style={{textAlign:'right'}}>{user.name}<br/>{user.email}</div>}<button className="avatar" title="Log out" onClick={logout}><LogOut size={15}/></button></div>}

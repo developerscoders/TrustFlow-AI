@@ -1,0 +1,3 @@
+import {db} from './db';
+export async function notifyUsers(userIds:string[],dealId:string,title:string,message:string,type:string){const ids=[...new Set(userIds)];if(ids.length)await db.notification.createMany({data:ids.map(userId=>({userId,dealId,title,message,type}))});}
+export async function audit(dealId:string,type:string,message:string,actor:string,actorId?:string,entity?:{type:string;id:string;metadata?:Record<string,string>}){return db.activity.create({data:{dealId,type,message,actor,actorId,entityType:entity?.type,entityId:entity?.id,metadata:entity?.metadata?JSON.stringify(entity.metadata):undefined}})}

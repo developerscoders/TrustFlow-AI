@@ -1,0 +1,16 @@
+node_modules
+.next
+/out
+.env*
+!.env.example
+*.db
+*.db-journal
+coverage
+/docs
+/.next-auth-verify
+/.next-verify
+/.next-verify-2
+/.next-auth-verify-2
+/.next-verify-day2
+/.next.build-backup
+/.next-verify-day2-final

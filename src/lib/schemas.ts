@@ -1,0 +1,4 @@
+import { z } from 'zod';
+export const dealInput = z.object({ title: z.string().min(3).max(120), description: z.string().min(20).max(10000), amount: z.number().int().positive().max(100000000), buyerName: z.string().min(2).max(100), providerName: z.string().min(2).max(100), dueDate: z.string().datetime().optional() });
+export const dealAnalysis = z.object({ summary: z.string(), missingInformation: z.array(z.string()), risks: z.array(z.string()), acceptanceCriteria: z.array(z.string()), milestones: z.array(z.object({title:z.string(),description:z.string(),amount:z.number().int().nonnegative()})) });
+export const evidenceAssessment=z.object({overall:z.enum(['MEETS','PARTIAL','DOES_NOT_MEET']),summary:z.string(),criteria:z.array(z.object({criterion:z.string(),status:z.enum(['MET','PARTIAL','MISSING']),reason:z.string()})),recommendedAction:z.enum(['APPROVE','REQUEST_REVISION','MANUAL_REVIEW'])});

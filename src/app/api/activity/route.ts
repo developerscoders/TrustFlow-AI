@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {currentUser} from '@/lib/auth';import {db} from '@/lib/db';
+export async function GET(req:Request){const u=await currentUser();if(!u)return NextResponse.json({error:'Unauthorized'},{status:401});const url=new URL(req.url),dealId=url.searchParams.get('dealId'),take=Math.min(100,Math.max(1,Number(url.searchParams.get('limit')||30)));const rows=await db.activity.findMany({where:{deal:{OR:[{buyerId:u.id},{providerId:u.id}],...(dealId?{id:dealId}:{})}},orderBy:{createdAt:'desc'},take});return NextResponse.json(rows);}

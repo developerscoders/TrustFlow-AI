@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {currentUser} from '@/lib/auth';import {db} from '@/lib/db';
+export async function PATCH(_:Request,{params}:{params:{id:string}}){const u=await currentUser();if(!u)return NextResponse.json({error:'Unauthorized'},{status:401});const n=await db.notification.updateMany({where:{id:params.id,userId:u.id},data:{readAt:new Date()}});return n.count?NextResponse.json({ok:true}):NextResponse.json({error:'Notification not found.'},{status:404});}
