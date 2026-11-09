@@ -4,7 +4,9 @@ import {db} from '@/lib/db';
 import {audit,notifyUsers} from '@/lib/events';
 import {sendWorkflowEmail} from '@/lib/mailer';
 import {indexDealText} from '@/lib/rag';
-export async function POST(_:Request,{params}:{params:{id:string}}){
+import {mutationError} from '@/lib/security';
+export async function POST(req:Request,{params}:{params:{id:string}}){
+ const invalid=mutationError(req);if(invalid)return invalid;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  const deal=await db.deal.findFirst({where:{id:params.id,OR:[{buyerId:user.id},{providerId:user.id}]},include:{agreement:true}});
  if(!deal?.agreement)return NextResponse.json({error:'Deal or agreement not found.'},{status:404});
