@@ -5,7 +5,7 @@ import {audit} from './events';
 type EmailInput={dealId:string;to:string;type:string;title:string;message:string;key:string;html?:string};
 export async function sendWorkflowEmail(input:{dealId:string;to:string;type:EmailTemplateType;dealTitle:string;message:string;key:string}){
  const base=(process.env.NEXT_PUBLIC_APP_URL||'http://localhost:3000').replace(/\/$/,'');
- const view=emailTemplate(input.type,input.dealTitle,input.message,`${base}/deals/${encodeURIComponent(input.dealId)}`);
+ const view=await emailTemplate(input.type,input.dealTitle,input.message,`${base}/deals/${encodeURIComponent(input.dealId)}`);
  return sendDealEmail({...input,title:view.subject,html:view.html});
 }
 export async function sendDealEmail(input:EmailInput){
