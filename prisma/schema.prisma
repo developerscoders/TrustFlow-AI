@@ -234,12 +234,14 @@ model Payment {
   currency String
   status String @default("CREATED")
   agreementVersion Int @default(1)
+  attempt Int @default(1)
   paypalPayerId String?
   failureReason String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   @@index([dealId,status])
+  @@index([dealId,agreementVersion,attempt])
 }
 model Dispute {
   id String @id @default(auto()) @map("_id") @db.ObjectId
