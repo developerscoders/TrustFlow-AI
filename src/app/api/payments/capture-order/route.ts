@@ -8,7 +8,6 @@ import {sendWorkflowEmail} from '@/lib/mailer';
 import {mutationError,rateLimit} from '@/lib/security';
 import {verifyCompletedOrder} from '@/lib/payment-verification';
 const input=z.object({orderId:z.string().min(1).max(200)});
-const money=(value:unknown)=>typeof value==='string'&&/^\d+\.\d{2}$/.test(value)?Math.round(Number(value)*100):Number.NaN;
 export async function POST(req:Request){
  const invalid=mutationError(req);if(invalid)return invalid;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
