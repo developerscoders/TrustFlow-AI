@@ -10,8 +10,8 @@ export async function GET(_:Request,{params}:{params:{id:string}}){
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  const submission=await db.submission.findUnique({where:{id:params.id},include:{deal:true}});
  if(!submission||![submission.deal.buyerId,submission.deal.providerId].includes(user.id))return NextResponse.json({error:'Not found.'},{status:404});
- const assessments=await db.assessment.findMany({where:{submissionId:submission.id},orderBy:{createdAt:'desc'}});
- return NextResponse.json(assessments);
+ const assessment=await db.assessment.findUnique({where:{submissionId:submission.id}});
+ return NextResponse.json(assessment?[assessment]:[]);
 }
 export async function POST(req:Request,{params}:{params:{id:string}}){
  const invalid=mutationError(req);if(invalid)return invalid;
@@ -20,6 +20,7 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
  const submission=await db.submission.findUnique({where:{id:params.id},include:{deal:true}});
  if(!submission||![submission.deal.buyerId,submission.deal.providerId].includes(user.id))return NextResponse.json({error:'Submission not found.'},{status:404});
  if(submission.status==='ASSESSED')return NextResponse.json({error:'This submission already has an assessment.'},{status:409});
+ const previous=await db.assessment.findUnique({where:{submissionId:submission.id}});if(previous){const restored={overallScore:previous.overallScore,status:previous.status,criteriaResults:JSON.parse(previous.criteriaResults),missingEvidence:JSON.parse(previous.missingEvidence),concerns:JSON.parse(previous.concerns),recommendation:previous.recommendation,explanation:previous.explanation};await db.submission.update({where:{id:submission.id},data:{status:'ASSESSED',assessment:JSON.stringify(restored)}});return NextResponse.json({status:'ASSESSED',assessment:restored,assessmentId:previous.id,reused:true})}
  const milestone=await db.milestone.findUnique({where:{id:submission.milestoneId}});
  const version=await db.agreementVersion.findUnique({where:{dealId_version:{dealId:submission.dealId,version:submission.agreementVersion}}});
  if(!milestone||!version?.buyerApprovedAt||!version.providerApprovedAt)return NextResponse.json({error:'The exact approved agreement version for this submission is unavailable.'},{status:409});
