@@ -40,9 +40,12 @@ export async function POST(req:Request){
    const orderId=event.resource?.id;if(orderId)await db.payment.updateMany({where:{paypalOrderId:orderId,status:{not:'COMPLETED'}},data:{status:'CANCELLED',failureReason:null}});
   }else if(event.event_type==='PAYMENT.CAPTURE.PENDING'){
    const orderId=event.resource?.supplementary_data?.related_ids?.order_id;if(orderId)await db.payment.updateMany({where:{paypalOrderId:orderId,status:{not:'COMPLETED'}},data:{status:'CAPTURE_PENDING'}});
-  }else if(event.event_type==='PAYMENT.CAPTURE.DENIED'||event.event_type==='PAYMENT.CAPTURE.REFUNDED'){
+  }else if(event.event_type==='PAYMENT.CAPTURE.DENIED'){
    const orderId=event.resource?.supplementary_data?.related_ids?.order_id;
-   if(orderId){const payment=await db.payment.findUnique({where:{paypalOrderId:orderId}});if(payment&&payment.status!=='COMPLETED')await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:event.event_type}})}
+   if(orderId){const payment=await db.payment.findUnique({where:{paypalOrderId:orderId},include:{deal:true}});if(payment&&payment.status!=='COMPLETED'){await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:event.event_type}});await audit(payment.dealId,'PAYMENT_FAILED','PayPal reported a denied capture.','PayPal',undefined,{type:'PAYMENT',id:payment.id});await notifyUsers([payment.deal.buyerId,...(payment.deal.providerId?[payment.deal.providerId]:[])],payment.dealId,'Payment failed','PayPal reported that the capture was denied.','PAYMENT')}}
+  }else if(event.event_type==='PAYMENT.CAPTURE.REFUNDED'){
+   const orderId=event.resource?.supplementary_data?.related_ids?.order_id;
+   if(orderId){const payment=await db.payment.findUnique({where:{paypalOrderId:orderId}});if(payment)await audit(payment.dealId,'PAYMENT_REFUNDED','PayPal reported a refund event.','PayPal',undefined,{type:'PAYMENT',id:payment.id})}
   }
   await db.webhookEvent.update({where:{id:record.id},data:{processedAt:new Date(),processingError:null}});
   return NextResponse.json({received:true});
