@@ -15,6 +15,7 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
  if(!submission||![submission.deal.buyerId,submission.deal.providerId].includes(user.id))return NextResponse.json({error:'Submission not found.'},{status:404});
  if(value.data.action==='REQUEST_REVISION'&&submission.deal.buyerId!==user.id)return NextResponse.json({error:'Only the buyer can request a revision.'},{status:403});
  const status=value.data.action==='REQUEST_REVISION'?'REVISION_REQUESTED':'HUMAN_REVIEW_REQUESTED';
+ if(submission.status===status)return NextResponse.json({status,duplicate:true});
  await db.submission.update({where:{id:submission.id},data:{status}});
  const message=value.data.action==='REQUEST_REVISION'?'Buyer requested a revision for the submitted evidence.':'A participant requested human review of the submitted evidence.';
  await audit(submission.dealId,status,message,user.name,user.id,{type:'SUBMISSION',id:submission.id,metadata:{note:value.data.note||''}});
