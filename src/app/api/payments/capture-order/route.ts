@@ -31,6 +31,8 @@ export async function POST(req:Request){
   if(capture?.status==='PENDING'){await db.payment.updateMany({where:{id:payment.id,status:{not:'COMPLETED'}},data:{status:'CAPTURE_PENDING'}});return NextResponse.json({status:'CAPTURE_PENDING',verified:false},{status:202})}
   if(!verifyCompletedOrder(order,{orderId:payment.paypalOrderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture?.id)){
    await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:'PayPal order/capture amount, currency, reference or status verification failed.'}});
+   await audit(payment.dealId,'PAYMENT_FAILED','PayPal capture could not be verified; no payment success was recorded.',user.name,user.id,{type:'PAYMENT',id:payment.id});
+   await notifyUsers([payment.deal.buyerId,...(payment.deal.providerId?[payment.deal.providerId]:[])],payment.dealId,'Payment verification failed','PayPal could not verify this payment. Please review the deal payment status.','PAYMENT');
    return NextResponse.json({error:'PayPal capture verification failed.'},{status:409});
   }
   const updated=await db.payment.updateMany({where:{id:payment.id,status:{not:'COMPLETED'}},data:{status:'COMPLETED',captureId:capture.id,paypalPayerId:order.payer?.payer_id||null,failureReason:null}});
