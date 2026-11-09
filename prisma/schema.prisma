@@ -144,6 +144,7 @@ model EmailLog {
   status String @default("QUEUED")
   attempts Int @default(0)
   lastError String?
+  payload String?
   nextAttemptAt DateTime?
   openedAt DateTime?
   clickedAt DateTime?
