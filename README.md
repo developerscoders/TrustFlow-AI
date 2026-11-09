@@ -12,7 +12,7 @@ TrustFlow turns a work description into a reviewable agreement, milestones, and 
 - Provider evidence submissions with validated public URL references and private file attachments (JPEG, PNG, WebP, PDF, TXT; 4 MB each), immutable submission history, and participant-authorized downloads.
 - Groq advisory evidence assessments validated with Zod against the exact approved agreement version and that version's acceptance criteria. Assessments are persisted separately from submissions; missing credentials and failed AI calls leave evidence saved and retryable.
 - Buyer revision requests and participant human-review requests; AI cannot approve agreements or authorize payments.
-- PayPal REST Orders v2 CAPTURE checkout, OAuth token reuse, hashed PayPal-Request-Id idempotency keys, server-side order/capture reconciliation, exact amount/currency/deal matching, unique capture IDs, and signed/idempotent webhook event processing. Use Sandbox credentials during development.
+- PayPal REST Orders v2 CAPTURE checkout, OAuth token reuse, hashed PayPal-Request-Id idempotency keys, server-side order/capture reconciliation, exact amount/currency/deal matching, unique capture IDs, and signed/idempotent webhook event processing. Providers configure their PayPal merchant receiving email; orders name that provider as the payee so checkout proceeds are routed directly to the provider account. This requires PayPal account/partner permissions for payee routing. Use Sandbox credentials during development.
 - Notification records, email delivery logging/idempotency, optional Resend integration, and deal-scoped semantic retrieval with Atlas Vector Search / OpenAI embeddings.
 - Rate limiting and security headers/origin checks are included; verify deployment-specific settings before production.
 
@@ -34,7 +34,7 @@ npx prisma db push
 npm run dev
 ```
 
-Open http://localhost:3000 and create an account at `/register`. The first account can create a deal after the provider has also registered. Sign in at `/login`. The workspace derives the buyer identity from the authenticated session.
+Open http://localhost:3000 and create an account at `/register`. The first account can create a deal after the provider has also registered. The provider must set their receiving PayPal merchant email in the deal workspace before the buyer can check out. Sign in at `/login`. The workspace derives the buyer identity from the authenticated session.
 
 The optional development seed is available with `npm run db:seed` where configured. Do not use demo credentials in production.
 
