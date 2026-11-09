@@ -18,7 +18,7 @@ export async function POST(req:Request){
   if(!status){await db.webhookEvent.update({where:{id:event.id},data:{processedAt:new Date(),processingError:null}});return NextResponse.json({received:true,ignored:true})}
   if(!emailId)throw new Error('Email provider ID missing.');
   const log=await db.emailLog.findFirst({where:{resendId:emailId}});
-  if(!log){await db.webhookEvent.update({where:{id:event.id},data:{processedAt:new Date(),processingError:null}});return NextResponse.json({received:true,unmatched:true})}
+  if(!log){await db.webhookEvent.update({where:{id:event.id},data:{processingError:'EmailLog not yet linked to Resend message ID; awaiting provider retry.'}});return NextResponse.json({error:'Email delivery record is not ready yet. Retry this webhook.'},{status:503})}
   const changed=(rank[status]??0)>(rank[log.status]??0)||log.status==='FAILED'||log.status==='QUEUED';
   if(changed){
    await db.emailLog.update({where:{id:log.id},data:{status,...(status==='OPENED'?{openedAt:new Date()}:{}),...(status==='CLICKED'?{clickedAt:new Date()}:{})}});
