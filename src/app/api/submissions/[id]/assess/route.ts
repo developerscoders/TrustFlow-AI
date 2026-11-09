@@ -23,8 +23,7 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
  const milestone=await db.milestone.findUnique({where:{id:submission.milestoneId}});
  const version=await db.agreementVersion.findUnique({where:{dealId_version:{dealId:submission.dealId,version:submission.agreementVersion}}});
  if(!milestone||!version?.buyerApprovedAt||!version.providerApprovedAt)return NextResponse.json({error:'The exact approved agreement version for this submission is unavailable.'},{status:409});
- let analysis:any={};try{analysis=JSON.parse(submission.deal.analysis||'{}')}catch{}
- const criteria=Array.isArray(analysis.acceptanceCriteria)?analysis.acceptanceCriteria.filter((x:unknown)=>typeof x==='string'):[];
+ let criteria:string[]=[];try{const parsed=JSON.parse(version.acceptanceCriteria||'[]');if(Array.isArray(parsed))criteria=parsed.filter((x:unknown)=>typeof x==='string')}catch{}if(!criteria.length)throw new Error('APPROVED_ACCEPTANCE_CRITERIA_NOT_FOUND');
  const files=JSON.parse(submission.fileMetadata||'[]') as any[],fileContext:string[]=[];
  for(const file of files){if(file.contentType==='text/plain'){try{fileContext.push('Text file '+file.filename+': '+(await readEvidenceFile(file.storageKey)).toString('utf8').slice(0,8000))}catch{fileContext.push('File '+file.filename+' is unavailable and unverifiable.')}}else fileContext.push('File '+file.filename+' is attached but its content has not been extracted; mark relevant criteria unverifiable.')}
  const evidence=[submission.content,submission.notes,...submission.urls.map((url:string)=>'URL reference (not fetched; unverified): '+url),...fileContext].filter(Boolean).join('\n\n');
