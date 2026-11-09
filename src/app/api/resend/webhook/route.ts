@@ -4,7 +4,7 @@ import {audit,notifyUsers} from '@/lib/events';
 import {verifyResendWebhookSignature} from '@/lib/resend-webhook';
 const rank:Record<string,number>={QUEUED:0,FAILED:0,SENT:1,DELIVERED:2,OPENED:3,CLICKED:4,BOUNCED:5};
 export async function POST(req:Request){
- const raw=await req.text(),id=req.headers.get('svix-id')||'',at=req.headers.get('svix-timestamp')||'',signature=req.headers.get('svix-signature')||'',secret=process.env.RESEND_WEBHOOK_SECRET,timestamp=Number(at);
+ const raw=await req.text(),id=req.headers.get('svix-id')||'',at=req.headers.get('svix-timestamp')||'',signature=req.headers.get('svix-signature')||'',secret=process.env.RESEND_WEBHOOK_SECRET;
  if(!secret||!verifyResendWebhookSignature({rawBody:raw,id,timestamp:at,signature,secret}))return NextResponse.json({error:'Invalid webhook signature.'},{status:400});
  try{
   const payload=JSON.parse(raw) as {type?:unknown;data?:{email_id?:unknown;id?:unknown}};
