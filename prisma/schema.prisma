@@ -203,7 +203,6 @@ model Assessment {
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   submission Submission @relation(fields:[submissionId],references:[id],onDelete:Cascade)
   @@index([dealId,createdAt])
-  @@index([submissionId])
 }
 model KnowledgeChunk {
   id String @id @default(auto()) @map("_id") @db.ObjectId
