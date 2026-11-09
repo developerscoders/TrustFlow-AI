@@ -1,6 +1,6 @@
-import {NextResponse} from 'next/server';import {db} from '@/lib/db';import {currentUser} from '@/lib/auth';import {dealInput} from '@/lib/schemas';import {analyzeDeal} from '@/lib/ai';import {notifyUsers} from '@/lib/events';import {sendWorkflowEmail} from '@/lib/mailer';import {indexDealText} from '@/lib/rag';import {mutationError,rateLimit} from '@/lib/security';
+import {NextResponse} from 'next/server';import {z} from 'zod';import {db} from '@/lib/db';import {currentUser} from '@/lib/auth';import {dealInput} from '@/lib/schemas';import {analyzeDeal} from '@/lib/ai';import {notifyUsers} from '@/lib/events';import {sendWorkflowEmail} from '@/lib/mailer';import {indexDealText} from '@/lib/rag';import {mutationError,rateLimit} from '@/lib/security';
 
-const createDealInput=dealInput.omit({buyerName:true,providerName:true}).extend({providerEmail:dealInput.shape.title.email()});
+const createDealInput=dealInput.omit({buyerName:true,providerName:true}).extend({providerEmail:z.string().trim().email().max(254)});
 
 export async function GET(){
   const user=await currentUser();
