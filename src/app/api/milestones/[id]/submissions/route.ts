@@ -17,8 +17,7 @@ async function assessSubmission(submissionId:string,milestoneId:string){
  if(!milestone)throw new Error('MILESTONE_NOT_FOUND');
  const version=await db.agreementVersion.findUnique({where:{dealId_version:{dealId:submission.dealId,version:submission.agreementVersion}}});
  if(!version?.buyerApprovedAt||!version.providerApprovedAt)throw new Error('APPROVED_AGREEMENT_VERSION_NOT_FOUND');
- let analysis:any={};try{analysis=JSON.parse(submission.deal.analysis||'{}')}catch{}
- const criteria=Array.isArray(analysis.acceptanceCriteria)?analysis.acceptanceCriteria.filter((x:unknown)=>typeof x==='string'):[];
+ let criteria:string[]=[];try{const parsed=JSON.parse(version.acceptanceCriteria||'[]');if(Array.isArray(parsed))criteria=parsed.filter((x:unknown)=>typeof x==='string')}catch{}if(!criteria.length)throw new Error('APPROVED_ACCEPTANCE_CRITERIA_NOT_FOUND');
  const metadata=JSON.parse(submission.fileMetadata||'[]') as {filename:string;contentType:string;size:number;storageKey:string}[];
  const fileContext:string[]=[];
  for(const file of metadata){if(file.contentType==='text/plain'){try{const bytes=await readEvidenceFile(file.storageKey);fileContext.push('Text file '+file.filename+': '+bytes.toString('utf8').slice(0,8000))}catch{fileContext.push('File '+file.filename+' could not be read and is unverifiable.')}}else fileContext.push('File '+file.filename+' ('+file.contentType+', '+file.size+' bytes) is attached but its contents have not been extracted; mark relevant criteria unverifiable.')}
