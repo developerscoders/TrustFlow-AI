@@ -12,6 +12,7 @@ const fileInput=z.object({name:z.string().min(1).max(200),type:z.string().max(10
 const input=z.object({content:z.string().max(12000).default(''),notes:z.string().max(3000).optional(),urls:z.array(z.string().url().max(2048)).max(10).default([]),files:z.array(fileInput).max(3).default([]),revisionOfId:z.string().optional()}).refine(v=>v.content.trim().length>=10||v.urls.length>0||v.files.length>0,{message:'Provide a written description, URL, or file.'});
 async function assessSubmission(submissionId:string,milestoneId:string){
  const submission=await db.submission.findUnique({where:{id:submissionId},include:{deal:true}});
+ const previous=await db.assessment.findUnique({where:{submissionId}});if(previous){const restored={overallScore:previous.overallScore,status:previous.status,criteriaResults:JSON.parse(previous.criteriaResults),missingEvidence:JSON.parse(previous.missingEvidence),concerns:JSON.parse(previous.concerns),recommendation:previous.recommendation,explanation:previous.explanation};await db.submission.update({where:{id:submissionId},data:{assessment:JSON.stringify(restored),status:'ASSESSED'}});return {assessment:restored,saved:previous}}
  if(!submission)throw new Error('SUBMISSION_NOT_FOUND');
  const milestone=await db.milestone.findUnique({where:{id:milestoneId}});
  if(!milestone)throw new Error('MILESTONE_NOT_FOUND');
