@@ -13,7 +13,9 @@ TrustFlow turns a work description into a reviewable agreement, milestones, and 
 - Groq advisory evidence assessments validated with Zod against the exact approved agreement version and that version's acceptance criteria. Assessments are persisted separately from submissions; missing credentials and failed AI calls leave evidence saved and retryable.
 - Buyer revision requests and participant human-review requests; AI cannot approve agreements or authorize payments.
 - PayPal REST Orders v2 CAPTURE checkout, OAuth token reuse, hashed PayPal-Request-Id idempotency keys, server-side order/capture reconciliation, exact amount/currency/deal matching, unique capture IDs, and signed/idempotent webhook event processing. Providers configure their PayPal merchant receiving email; orders name that provider as the payee so checkout proceeds are routed directly to the provider account. This requires PayPal account/partner permissions for payee routing. Use Sandbox credentials during development.
-- Notification records, email delivery logging/idempotency, optional Resend integration, and deal-scoped semantic retrieval with Atlas Vector Search / OpenAI embeddings.
+- Persistent participant-scoped notifications with unread counts, pagination, mark-read actions, and a deal activity timeline.
+- Resend transactional email delivery with React Email templates, idempotent EmailLog records, retry processing, and Svix-verified webhook tracking (sent, delivered, likely opened, clicked, bounced). Open tracking is only a privacy-limited signal, not proof of reading.
+- Deal-scoped semantic retrieval with Atlas Vector Search / OpenAI embeddings.
 - Rate limiting and security headers/origin checks are included; verify deployment-specific settings before production.
 
 ## Requirements
@@ -70,7 +72,7 @@ npm test
 npm run build
 ```
 
-Some integrations require credentials and service-side configuration. A successful local compile does not verify live PayPal, Resend, or Atlas Vector Search configuration. For local development, private uploads are stored under `.trustflow-uploads` (ignored by Git). In production, set `TRUSTFLOW_PRIVATE_UPLOAD_DIR` to a persistent private volume; do not point it at `public/`. This adapter is filesystem-backed, not S3/object storage.
+For Resend, verify the sending domain in the Resend dashboard and publish the DNS records Resend supplies before sending to arbitrary recipients. Configure a Resend webhook pointing to `https://YOUR_APP_HOST/api/resend/webhook` and subscribe to `email.sent`, `email.delivered`, `email.opened`, `email.clicked`, and `email.bounced`; copy its signing secret into `RESEND_WEBHOOK_SECRET`. The email outbox retry endpoint is authenticated and can be invoked by a participant to retry failed deal email logs. Missing email configuration is recorded as a failure and does not roll back the deal, payment, or evidence operation.\n\nSome integrations require credentials and service-side configuration. A successful local compile does not verify live PayPal, Resend, or Atlas Vector Search configuration. For local development, private uploads are stored under `.trustflow-uploads` (ignored by Git). In production, set `TRUSTFLOW_PRIVATE_UPLOAD_DIR` to a persistent private volume; do not point it at `public/`. This adapter is filesystem-backed, not S3/object storage.
 
 ## Security and deployment notes
 
