@@ -1,0 +1,3 @@
+export function canReadDeal(userId:string,buyerId:string,providerId:string|null|undefined){return userId===buyerId||Boolean(providerId&&userId===providerId)}
+export function canInitiatePayment(userId:string,buyerId:string,buyerApprovedAt:Date|null|undefined,providerApprovedAt:Date|null|undefined){return userId===buyerId&&Boolean(buyerApprovedAt&&providerApprovedAt)}
+export function canSubmitEvidence(userId:string,providerId:string|null|undefined,buyerApprovedAt:Date|null|undefined,providerApprovedAt:Date|null|undefined){return Boolean(providerId&&userId===providerId&&buyerApprovedAt&&providerApprovedAt)}
