@@ -31,7 +31,7 @@ async function assessSubmission(submissionId:string,milestoneId:string){
  const participants=[submission.deal.buyerId,...(submission.deal.providerId?[submission.deal.providerId]:[])];
  await notifyUsers(participants,submission.dealId,'Assessment completed','An advisory AI assessment is ready for '+milestone.title+'. Participant review is required.','ASSESSMENT');
  const recipients=await db.user.findMany({where:{id:{in:participants}}});
- for(const recipient of recipients)void sendWorkflowEmail({dealId:submission.dealId,to:recipient.email,type:'ASSESSMENT_RESULT',dealTitle:submission.deal.title,message:'An advisory assessment is ready for milestone: '+milestone.title+'. Review it with the other participant.',key:'assessment-'+saved.id+'-'+recipient.id});
+ for(const recipient of recipients)void sendWorkflowEmail({dealId:submission.dealId,to:recipient.email,type:'ASSESSMENT_RESULT',dealTitle:submission.deal.title,message:'An advisory assessment is ready for milestone: '+milestone.title+'. Review it with the other participant.',key:'assessment-'+saved.id+'-'+recipient.id}).catch(()=>null);
  return {assessment,saved};
 }
 export async function GET(_:Request,{params}:{params:{id:string}}){
@@ -65,7 +65,7 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
   await audit(deal.id,value.data.revisionOfId?'REVISION_SUBMITTED':'EVIDENCE_SUBMITTED',(value.data.revisionOfId?'Revision':'Evidence')+' submitted for '+milestone.title+'.',user.name,user.id,{type:'SUBMISSION',id:submission.id});
   await notifyUsers([deal.buyerId],deal.id,value.data.revisionOfId?'Revision submitted':'Evidence submitted',user.name+' submitted evidence for '+milestone.title+'.','EVIDENCE');
   const buyer=await db.user.findUnique({where:{id:deal.buyerId}});
-  if(buyer)void sendWorkflowEmail({dealId:deal.id,to:buyer.email,type:'EVIDENCE_SUBMITTED',dealTitle:deal.title,message:user.name+' submitted evidence for '+milestone.title+'.',key:'submission-'+submission.id+'-'+buyer.id});
+  if(buyer)void sendWorkflowEmail({dealId:deal.id,to:buyer.email,type:'EVIDENCE_SUBMITTED',dealTitle:deal.title,message:user.name+' submitted evidence for '+milestone.title+'.',key:'submission-'+submission.id+'-'+buyer.id}).catch(()=>null);
   void indexDealText({dealId:deal.id,ownerId:user.id,participantIds:[deal.buyerId,...(deal.providerId?[deal.providerId]:[])],sourceType:'SUBMISSION',sourceId:submission.id,title:milestone.title,text:[submission.content,submission.notes,...submission.urls].filter(Boolean).join('\n'),agreementVersion:agreement.version}).catch(()=>null);
   try{const result=await assessSubmission(submission.id,milestone.id);return NextResponse.json({...submission,assessment:JSON.stringify(result.assessment),assessmentState:'COMPLETED',assessmentId:result.saved.id},{status:201})}
   catch(error){await db.submission.update({where:{id:submission.id},data:{status:'ASSESSMENT_FAILED'}});const configured=error instanceof Error&&error.message==='AI_CONFIGURATION_REQUIRED';return NextResponse.json({...submission,assessment:null,assessmentState:configured?'CONFIGURATION_REQUIRED':'FAILED',assessmentMessage:configured?'Groq is not configured. Your evidence is saved; configure GROQ_API_KEY and retry assessment.':'Evidence is saved, but AI assessment failed. Retry it when the AI service is available.'},{status:201})}
