@@ -40,7 +40,7 @@ export async function POST(req:Request){
    if(providerId){
     await notifyUsers([providerId],payment.dealId,'Payment verified',`PayPal confirmed payment for ${payment.deal.title}.`,'PAYMENT');
     const recipient=await db.user.findUnique({where:{id:providerId}});
-    if(recipient)void sendWorkflowEmail({dealId:payment.dealId,to:recipient.email,type:'PAYMENT_VERIFIED',dealTitle:payment.deal.title,message:'PayPal confirmed payment for this deal.',key:`payment-${payment.id}-${recipient.id}`});
+    if(recipient)void sendWorkflowEmail({dealId:payment.dealId,to:recipient.email,type:'PAYMENT_VERIFIED',dealTitle:payment.deal.title,message:'PayPal confirmed payment for this deal.',key:`payment-${payment.id}-${recipient.id}`}).catch(()=>null);
    }
   }
   return NextResponse.json({status:'COMPLETED',verified:true});
