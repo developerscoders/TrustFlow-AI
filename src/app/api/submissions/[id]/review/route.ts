@@ -23,7 +23,7 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
  await notifyUsers(recipientIds,submission.dealId,value.data.action==='REQUEST_REVISION'?'Revision requested':'Human review requested',value.data.note?message+' Note: '+value.data.note:message,'REVIEW');
  if(value.data.action==='REQUEST_REVISION'&&submission.deal.providerId){
   const recipient=await db.user.findUnique({where:{id:submission.deal.providerId}});
-  if(recipient)void sendWorkflowEmail({dealId:submission.dealId,to:recipient.email,type:'REVISION_REQUESTED',dealTitle:submission.deal.title,message:value.data.note?message+' Note: '+value.data.note:message,key:'revision-'+submission.id+'-'+Date.now()});
+  if(recipient)void sendWorkflowEmail({dealId:submission.dealId,to:recipient.email,type:'REVISION_REQUESTED',dealTitle:submission.deal.title,message:value.data.note?message+' Note: '+value.data.note:message,key:'revision-'+submission.id+'-'+Date.now()}).catch(()=>null);
  }
  return NextResponse.json({status});
 }
