@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import {dealAnalysis,evidenceAssessment} from './schemas';
+import {dealAnalysis} from './schemas';
 import {z} from 'zod';
 export async function analyzeDeal(description:string,amount:number){
  if(!process.env.GROQ_API_KEY)return dealAnalysis.parse({summary:'AI analysis is ready when a Groq API key is configured. Add clear deliverables, review rounds, and handoff details to strengthen this deal.',missingInformation:['Define exact deliverables and file formats.','Specify revision rounds.','Confirm timeline and handoff requirements.'],risks:['Scope may be interpreted differently without measurable acceptance criteria.'],acceptanceCriteria:['Deliverables match the agreed scope.','Source files and handoff instructions are included.','Buyer confirms completion against written criteria.'],milestones:[{title:'Scope and plan',description:'Confirm deliverables and project plan.',amount:Math.round(amount*.2)},{title:'Primary delivery',description:'Complete the agreed core work for review.',amount:Math.round(amount*.5)},{title:'Final handoff',description:'Address agreed revisions and hand over final files.',amount:amount-Math.round(amount*.7)}]});
@@ -27,4 +27,3 @@ export async function verifyEvidence(input:{evidence:string;milestone:string;des
  const raw=result.choices[0]?.message.content;if(!raw)throw new Error('AI returned an empty assessment.');
  return verificationSchema.parse(JSON.parse(raw));
 }
-export const evidenceAssessment=evidenceAssessment;
