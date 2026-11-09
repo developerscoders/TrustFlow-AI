@@ -9,8 +9,10 @@ TrustFlow turns a work description into a reviewable agreement, milestones, and 
 - Email/password registration and login with scrypt password hashing, hashed opaque session tokens, HttpOnly cookies, and session expiry.
 - Participant-scoped deal and notification APIs. Deal creation uses the signed-in account as buyer and requires an existing provider account email; participant names are never accepted as identity.
 - AI-assisted scope analysis, agreement generation/versioning, milestone management, dual-party agreement approval, and activity history.
-- Provider evidence submissions, AI assessment against approved milestone criteria, and revision history.
-- PayPal Orders v2 checkout and server-side capture amount/currency verification. Use Sandbox credentials during development.
+- Provider evidence submissions with validated public URL references and private file attachments (JPEG, PNG, WebP, PDF, TXT; 4 MB each), immutable submission history, and participant-authorized downloads.
+- Groq advisory evidence assessments validated with Zod against the exact approved agreement version and that version's acceptance criteria. Assessments are persisted separately from submissions; missing credentials and failed AI calls leave evidence saved and retryable.
+- Buyer revision requests and participant human-review requests; AI cannot approve agreements or authorize payments.
+- PayPal REST Orders v2 CAPTURE checkout, OAuth token reuse, hashed PayPal-Request-Id idempotency keys, server-side order/capture reconciliation, exact amount/currency/deal matching, unique capture IDs, and signed/idempotent webhook event processing. Use Sandbox credentials during development.
 - Notification records, email delivery logging/idempotency, optional Resend integration, and deal-scoped semantic retrieval with Atlas Vector Search / OpenAI embeddings.
 - Rate limiting and security headers/origin checks are included; verify deployment-specific settings before production.
 
@@ -53,6 +55,7 @@ Copy `.env.example` to `.env` and configure only the integrations you intend to 
 | `RESEND_API_KEY`, `EMAIL_FROM` | Optional email delivery |
 | `RESEND_WEBHOOK_SECRET` | Resend webhook verification configuration |
 | `AUTH_SECRET` | Reserved for deployment-specific auth integrations; never expose secrets with a `NEXT_PUBLIC_` prefix |
+| `TRUSTFLOW_PRIVATE_UPLOAD_DIR` | Persistent private filesystem directory for evidence attachments; required in production deployments |
 
 Never commit `.env`, API keys, database credentials, or PayPal secrets.
 
@@ -67,7 +70,7 @@ npm test
 npm run build
 ```
 
-Some integrations require credentials and service-side configuration. A successful local compile does not verify live PayPal, Resend, or Atlas Vector Search configuration.
+Some integrations require credentials and service-side configuration. A successful local compile does not verify live PayPal, Resend, or Atlas Vector Search configuration. For local development, private uploads are stored under `.trustflow-uploads` (ignored by Git). In production, set `TRUSTFLOW_PRIVATE_UPLOAD_DIR` to a persistent private volume; do not point it at `public/`. This adapter is filesystem-backed, not S3/object storage.
 
 ## Security and deployment notes
 
