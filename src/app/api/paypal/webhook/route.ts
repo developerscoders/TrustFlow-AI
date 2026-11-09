@@ -38,6 +38,8 @@ export async function POST(req:Request){
    const orderId=event.resource?.id;if(orderId)await db.payment.updateMany({where:{paypalOrderId:orderId,status:'CREATED'},data:{status:'APPROVED'}});
   }else if(event.event_type==='CHECKOUT.ORDER.VOIDED'){
    const orderId=event.resource?.id;if(orderId)await db.payment.updateMany({where:{paypalOrderId:orderId,status:{not:'COMPLETED'}},data:{status:'CANCELLED',failureReason:null}});
+  }else if(event.event_type==='PAYMENT.CAPTURE.PENDING'){
+   const orderId=event.resource?.supplementary_data?.related_ids?.order_id;if(orderId)await db.payment.updateMany({where:{paypalOrderId:orderId,status:{not:'COMPLETED'}},data:{status:'CAPTURE_PENDING'}});
   }else if(event.event_type==='PAYMENT.CAPTURE.DENIED'||event.event_type==='PAYMENT.CAPTURE.REFUNDED'){
    const orderId=event.resource?.supplementary_data?.related_ids?.order_id;
    if(orderId){const payment=await db.payment.findUnique({where:{paypalOrderId:orderId}});if(payment&&payment.status!=='COMPLETED')await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:event.event_type}})}
