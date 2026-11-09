@@ -3,6 +3,7 @@ import {db} from '@/lib/db';
 import {getPayPalOrder,paypalConfigured,verifyPayPalWebhook} from '@/lib/paypal';
 import {audit,notifyUsers} from '@/lib/events';
 import {sendWorkflowEmail} from '@/lib/mailer';
+import {validWebhookCapture,verifyCompletedOrder} from '@/lib/payment-verification';
 const cents=(v:unknown)=>typeof v==='string'&&/^\d+\.\d{2}$/.test(v)?Math.round(Number(v)*100):Number.NaN;
 export async function POST(req:Request){
  if(!paypalConfigured()||!process.env.PAYPAL_WEBHOOK_ID)return NextResponse.json({error:'PayPal webhook configuration required.'},{status:503});
@@ -20,13 +21,13 @@ export async function POST(req:Request){
   if(event.event_type==='PAYMENT.CAPTURE.COMPLETED'){
    const capture=event.resource;
    const orderId=capture?.supplementary_data?.related_ids?.order_id;
-   if(!orderId||capture?.status!=='COMPLETED')throw new Error('Capture event is missing a completed order reference.');
+   if(!orderId||!validWebhookCapture(event,{orderId,dealId:'',amount:0,currency:capture?.amount?.currency_code}))throw new Error('Capture event is missing a completed order reference or valid amount.');
    const payment=await db.payment.findUnique({where:{paypalOrderId:orderId},include:{deal:true}});
    if(!payment)throw new Error('Payment order not found for capture event.');
    const order=await getPayPalOrder(orderId);
    const unit=order.purchase_units?.find((x:any)=>x.custom_id===payment.dealId||x.reference_id===payment.dealId);
    const orderCapture=unit?.payments?.captures?.find((x:any)=>x.id===capture.id);
-   if(order.status!=='COMPLETED'||!orderCapture||orderCapture.status!=='COMPLETED'||capture.amount?.currency_code!==payment.currency||cents(capture.amount?.value)!==payment.amount||orderCapture.amount?.currency_code!==payment.currency||cents(orderCapture.amount?.value)!==payment.amount)throw new Error('Capture amount, currency, order reference or status did not reconcile.');
+   if(!validWebhookCapture(event,{orderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency})||!verifyCompletedOrder(order,{orderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture.id))throw new Error('Capture amount, currency, order reference or status did not reconcile.');
    const changed=await db.payment.updateMany({where:{id:payment.id,status:{not:'COMPLETED'}},data:{status:'COMPLETED',captureId:capture.id,paypalPayerId:order.payer?.payer_id||null,failureReason:null}});
    if(changed.count){
     await audit(payment.dealId,'PAYMENT_VERIFIED','PayPal capture webhook verified against the order.','PayPal',undefined,{type:'PAYMENT',id:payment.id});
@@ -36,6 +37,8 @@ export async function POST(req:Request){
      if(recipient)void sendWorkflowEmail({dealId:payment.dealId,to:recipient.email,type:'PAYMENT_VERIFIED',dealTitle:payment.deal.title,message:'PayPal confirmed payment for this deal.',key:`payment-${payment.id}-${recipient.id}`});
     }
    }
+  }else if(event.event_type==='CHECKOUT.ORDER.VOIDED'){
+   const orderId=event.resource?.id;if(orderId)await db.payment.updateMany({where:{paypalOrderId:orderId,status:{not:'COMPLETED'}},data:{status:'CANCELLED',failureReason:null}});
   }else if(event.event_type==='PAYMENT.CAPTURE.DENIED'||event.event_type==='PAYMENT.CAPTURE.REFUNDED'){
    const orderId=event.resource?.supplementary_data?.related_ids?.order_id;
    if(orderId){const payment=await db.payment.findUnique({where:{paypalOrderId:orderId}});if(payment&&payment.status!=='COMPLETED')await db.payment.update({where:{id:payment.id},data:{status:'FAILED',failureReason:event.event_type}})}
