@@ -16,6 +16,7 @@ model User {
   buyerDeals    Deal[]    @relation("BuyerDeals")
   providerDeals Deal[]    @relation("ProviderDeals")
   submissions Submission[]
+  assessments Assessment[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -137,7 +138,11 @@ model WebhookEvent {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   providerEventId String @unique
   type String
+  payload String?
+  processedAt DateTime?
+  processingError String?
   createdAt DateTime @default(now())
+  @@index([type,createdAt])
 }
 model Submission {
   id String @id @default(auto()) @map("_id") @db.ObjectId
@@ -151,7 +156,34 @@ model Submission {
   author User @relation(fields:[submittedById],references:[id])
   createdAt DateTime @default(now())
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  assessments Assessment[]
+  urls String[] @default([])
+  fileMetadata String?
+  notes String?
+  status String @default("SUBMITTED")
+  updatedAt DateTime @updatedAt
   @@index([dealId,createdAt])
+  @@index([milestoneId,createdAt])
+}
+model Assessment {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  submissionId String @db.ObjectId
+  milestoneId String @db.ObjectId
+  agreementVersion Int
+  overallScore Int
+  status String
+  criteriaResults String
+  missingEvidence String
+  concerns String
+  recommendation String
+  explanation String
+  provider String @default("groq")
+  createdAt DateTime @default(now())
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  submission Submission @relation(fields:[submissionId],references:[id],onDelete:Cascade)
+  @@index([dealId,createdAt])
+  @@index([submissionId,createdAt])
 }
 model KnowledgeChunk {
   id String @id @default(auto()) @map("_id") @db.ObjectId
@@ -180,6 +212,9 @@ model Payment {
   amount Int
   currency String
   status String @default("CREATED")
+  idempotencyKey String? @unique
+  paypalPayerId String?
+  failureReason String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
