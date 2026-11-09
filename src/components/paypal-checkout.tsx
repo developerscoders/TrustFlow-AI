@@ -26,6 +26,7 @@ export function PayPalCheckout({dealId,onVerified}:{dealId:string;onVerified:()=
       try{
        const response=await fetch('/api/payments/capture-order',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({orderId:data.orderID})});
        const result=await response.json();
+       if(response.status===202&&result.status==='CAPTURE_PENDING'){if(mounted.current){setState('ready');setMessage('PayPal is still processing the capture. TrustFlow will show completion only after verification.');onVerifiedRef.current()}return}
        if(!response.ok||result.status!=='COMPLETED'||result.verified!==true)throw new Error(result.error||'Payment could not be verified.');
        if(mounted.current){setMessage('Payment verified by PayPal.');setState('ready');onVerifiedRef.current()}
       }catch(error){if(mounted.current){setState('error');setMessage(error instanceof Error?error.message:'Payment verification failed. Retry from the checkout button.')}}
