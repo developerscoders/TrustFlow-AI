@@ -20,7 +20,7 @@ export async function POST(req:Request,{params}:{params:{id:string}}){
   await db.deal.update({where:{id:deal.id},data:{status:'ACTIVE'}});
   const participants=[deal.buyerId,...(deal.providerId?[deal.providerId]:[])];
   const recipients=await db.user.findMany({where:{id:{in:participants}}});
-  for(const recipient of recipients)void sendWorkflowEmail({dealId:deal.id,to:recipient.email,type:'AGREEMENT_APPROVED',dealTitle:deal.title,message:`Both parties approved agreement version ${current.version}.`,key:`agreement-approved-${deal.id}-${current.version}-${recipient.id}`});
+  for(const recipient of recipients)void sendWorkflowEmail({dealId:deal.id,to:recipient.email,type:'AGREEMENT_APPROVED',dealTitle:deal.title,message:`Both parties approved agreement version ${current.version}.`,key:`agreement-approved-${deal.id}-${current.version}-${recipient.id}`}).catch(()=>null);
   void indexDealText({dealId:deal.id,ownerId:deal.buyerId,participantIds:participants,sourceType:'APPROVED_AGREEMENT',sourceId:`${current.id}-v${current.version}`,title:`${deal.title} approved agreement v${current.version}`,text:current.body,agreementVersion:current.version}).catch(()=>null);
  }
  await audit(deal.id,'AGREEMENT_APPROVED',`${buyer?'Buyer':'Provider'} approved version ${current.version}.`,user.name,user.id);
