@@ -153,6 +153,7 @@ model EmailLog {
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   @@index([dealId,createdAt])
   @@index([resendId])
+  @@index([status,nextAttemptAt,attempts])
 }
 model WebhookEvent {
   id String @id @default(auto()) @map("_id") @db.ObjectId
