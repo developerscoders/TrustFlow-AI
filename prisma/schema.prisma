@@ -12,6 +12,7 @@ model User {
   name          String
   email         String    @unique
   passwordHash  String
+  paypalMerchantEmail String?
   sessions      Session[]
   buyerDeals    Deal[]    @relation("BuyerDeals")
   providerDeals Deal[]    @relation("ProviderDeals")
