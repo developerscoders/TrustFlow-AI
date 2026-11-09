@@ -22,7 +22,7 @@ export async function POST(req:Request){
     if(provider.id===user.id)return NextResponse.json({error:'You cannot invite your own account as the provider.'},{status:400});
     const analysis=await analyzeDeal(value.data.description,value.data.amount);
     if(analysis.milestones.reduce((sum,m)=>sum+m.amount,0)!==value.data.amount)return NextResponse.json({error:'AI milestone totals did not match.'},{status:422});
-    const agreementBody=[analysis.summary,'',...analysis.acceptanceCriteria.map(x=>'• '+x),'',...analysis.milestones.map(m=>`${m.title}: $${(m.amount/100).toFixed(2)} — ${m.description}`)].join('\\n');
+    const agreementBody=[analysis.summary,'',...analysis.acceptanceCriteria.map(x=>'• '+x),'',...analysis.milestones.map(m=>`${m.title}: $${(m.amount/100).toFixed(2)} — ${m.description}`)].join('\n');
     const deal=await db.deal.create({data:{
       title:value.data.title,description:value.data.description,amount:value.data.amount,currency:'USD',
       buyerName:user.name,providerName:provider.name,buyerId:user.id,providerId:provider.id,
