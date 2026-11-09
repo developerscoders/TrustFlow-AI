@@ -21,9 +21,9 @@ export async function paypalRequest<T=any>(path:string,method='GET',body?:unknow
  if(!response.ok){const issue=data?.details?.[0]?.issue||data?.name||'PAYPAL_ERROR';throw new Error(`PayPal ${issue} (${response.status}).`)}
  return data as T;
 }
-export async function createPayPalOrder(input:{dealId:string;title:string;amount:number;currency:string;requestId?:string}){
+export async function createPayPalOrder(input:{dealId:string;title:string;amount:number;currency:string;payeeEmail:string;requestId?:string}){
  const requestId=createHash('sha256').update(input.requestId||randomUUID()).digest('hex').slice(0,32);
- return paypalRequest<{id:string;status:string}>('/v2/checkout/orders','POST',{intent:'CAPTURE',purchase_units:[{reference_id:input.dealId,custom_id:input.dealId,description:input.title.slice(0,127),amount:{currency_code:input.currency,value:(input.amount/100).toFixed(2)}}]},requestId);
+ return paypalRequest<{id:string;status:string}>('/v2/checkout/orders','POST',{intent:'CAPTURE',purchase_units:[{reference_id:input.dealId,custom_id:input.dealId,payee:{email_address:input.payeeEmail},description:input.title.slice(0,127),amount:{currency_code:input.currency,value:(input.amount/100).toFixed(2)}}]},requestId);
 }
 export async function capturePayPalOrder(orderId:string,requestId:string){
  const idempotencyKey=createHash('sha256').update(requestId).digest('hex').slice(0,32);
