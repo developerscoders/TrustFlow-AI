@@ -33,7 +33,7 @@ export async function POST(req:Request){
     },include:{milestones:true,agreement:true}});
     await db.agreementVersion.create({data:{dealId:deal.id,agreementId:deal.agreement!.id,version:1,body:agreementBody,acceptanceCriteria:JSON.stringify(analysis.acceptanceCriteria)}});
     await notifyUsers([provider.id],deal.id,'Deal invitation',`${user.name} invited you to ${deal.title}.`,'INVITATION');
-    void sendWorkflowEmail({dealId:deal.id,to:provider.email,type:'DEAL_INVITATION',dealTitle:deal.title,message:`${user.name} invited you to review this deal.`,key:`invite-${deal.id}-${provider.id}`});
+    void sendWorkflowEmail({dealId:deal.id,to:provider.email,type:'DEAL_INVITATION',dealTitle:deal.title,message:`${user.name} invited you to review this deal.`,key:`invite-${deal.id}-${provider.id}`}).catch(()=>null);
     void indexDealText({dealId:deal.id,ownerId:user.id,participantIds:[user.id,provider.id],sourceType:'AGREEMENT',sourceId:deal.agreement!.id,title:`${deal.title} agreement`,text:agreementBody,agreementVersion:1}).catch(()=>null);
     return NextResponse.json(deal,{status:201});
   }catch{return NextResponse.json({error:'Could not create deal.'},{status:500});}
