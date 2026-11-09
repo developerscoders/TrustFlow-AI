@@ -81,7 +81,7 @@ model AgreementVersion {
   agreementId String @db.ObjectId
   version Int
   body String
-  acceptanceCriteria String @default("[]")
+  acceptanceCriteria String?
   buyerApprovedAt DateTime?
   providerApprovedAt DateTime?
   createdAt DateTime @default(now())
@@ -182,7 +182,6 @@ model Submission {
   fileMetadata String?
   notes String?
   status String @default("SUBMITTED")
-  updatedAt DateTime @updatedAt
   @@index([dealId,createdAt])
   @@index([milestoneId,createdAt])
 }
@@ -234,7 +233,7 @@ model Payment {
   currency String
   status String @default("CREATED")
   agreementVersion Int @default(1)
-  attempt Int @default(1)
+  attempt Int?
   paypalPayerId String?
   failureReason String?
   createdAt DateTime @default(now())
