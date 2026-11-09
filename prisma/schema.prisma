@@ -45,6 +45,7 @@ model Deal {
   dueDate      DateTime?
   analysis     String?
   agreement    Agreement?
+  agreementVersions AgreementVersion[]
   milestones   Milestone[]
   activities   Activity[]
   submissions Submission[]
@@ -70,6 +71,22 @@ model Agreement {
   deal               Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+  versions AgreementVersion[]
+}
+
+model AgreementVersion {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  agreementId String @db.ObjectId
+  version Int
+  body String
+  buyerApprovedAt DateTime?
+  providerApprovedAt DateTime?
+  createdAt DateTime @default(now())
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  agreement Agreement @relation(fields:[agreementId],references:[id],onDelete:Cascade)
+  @@unique([dealId,version])
+  @@index([dealId,version])
 }
 
 model Milestone {
