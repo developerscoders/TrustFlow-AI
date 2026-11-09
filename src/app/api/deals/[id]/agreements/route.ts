@@ -5,7 +5,7 @@ import {db} from '@/lib/db';
 import {audit,notifyUsers} from '@/lib/events';
 import {mutationError} from '@/lib/security';
 import {indexDealText} from '@/lib/rag';
-function criteriaFromBody(body:string){return body.split(/\\r?\\n/).map(line=>line.trim()).filter(line=>line.startsWith('• ')).map(line=>line.slice(2).trim()).filter(Boolean)}
+function criteriaFromBody(body:string){return body.split(/\r?\n/).map(line=>line.trim()).filter(line=>line.startsWith('• ')).map(line=>line.slice(2).trim()).filter(Boolean)}
 const input=z.object({body:z.string().trim().min(40).max(20000)});
 export async function PATCH(req:Request,{params}:{params:{id:string}}){
  const invalid=mutationError(req);if(invalid)return invalid;
