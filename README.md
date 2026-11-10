@@ -6,14 +6,15 @@ TrustFlow turns a work description into a reviewable agreement, milestones, and 
 
 ## Current implementation
 
-- Email/password registration and login with scrypt password hashing, hashed opaque session tokens, HttpOnly cookies, and session expiry.
-- Participant-scoped deal and notification APIs. Deal creation uses the signed-in account as buyer and requires an existing provider account email; participant names are never accepted as identity.
+- Public animated landing page plus email/password registration and login with scrypt password hashing, hashed opaque session tokens, HttpOnly cookies, session expiry, login rate limits, and protected participant workspaces.
+- Participant-scoped deal and notification APIs. Deal creation uses the signed-in account as buyer and requires an existing provider account email; participant names are never accepted as identity. The authenticated workspace is available at `/dashboard`.
 - AI-assisted scope analysis, agreement generation/versioning, milestone management, dual-party agreement approval, and activity history.
 - Provider evidence submissions with validated public URL references and private file attachments (JPEG, PNG, WebP, PDF, TXT; 4 MB each), immutable submission history, and participant-authorized downloads.
 - Groq advisory evidence assessments validated with Zod against the exact approved agreement version and that version's acceptance criteria. Assessments are persisted separately from submissions; missing credentials and failed AI calls leave evidence saved and retryable.
 - Buyer revision requests and participant human-review requests; AI cannot approve agreements or authorize payments.
 - PayPal REST Orders v2 CAPTURE checkout, OAuth token reuse, hashed PayPal-Request-Id idempotency keys, server-side order/capture reconciliation, exact amount/currency/deal matching, unique capture IDs, and signed/idempotent webhook event processing. Providers configure their PayPal merchant receiving email; orders name that provider as the payee so checkout proceeds are routed directly to the provider account. This requires PayPal account/partner permissions for payee routing. Use Sandbox credentials during development.
 - Persistent participant-scoped notifications with unread counts, pagination, mark-read actions, and a deal activity timeline.
+- Deal discussion messages for participant negotiation, contextual floating Ask AI, neutral AI dispute summaries, dock-style workspace navigation, and drag-and-drop milestone ordering with keyboard controls.
 - Resend transactional email delivery with React Email templates, idempotent EmailLog records, retry processing, and Svix-verified webhook tracking (sent, delivered, likely opened, clicked, bounced). Open tracking is only a privacy-limited signal, not proof of reading.
 - Deal-scoped semantic retrieval with Atlas Vector Search / OpenAI embeddings.
 - Rate limiting and security headers/origin checks are included; verify deployment-specific settings before production.
@@ -36,7 +37,7 @@ npx prisma db push
 npm run dev
 ```
 
-Open http://localhost:3000 and create an account at `/register`. The first account can create a deal after the provider has also registered. The provider must set their receiving PayPal merchant email in the deal workspace before the buyer can check out. Sign in at `/login`. The workspace derives the buyer identity from the authenticated session.
+Open http://localhost:3000 for the public landing page. Create an account at `/register` and open the authenticated workspace at `/dashboard`. The first account can create a deal after the provider has also registered. The provider must set their receiving PayPal merchant email in the deal workspace before the buyer can check out. Sign in at `/login`. The workspace derives the buyer identity from the authenticated session.
 
 The optional development seed is available with `npm run db:seed` where configured. Do not use demo credentials in production.
 
