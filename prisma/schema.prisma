@@ -12,6 +12,7 @@ model User {
   name          String
   email         String    @unique
   passwordHash  String
+  paypalMerchantEmail String?
   sessions      Session[]
   buyerDeals    Deal[]    @relation("BuyerDeals")
   providerDeals Deal[]    @relation("ProviderDeals")
@@ -45,9 +46,11 @@ model Deal {
   dueDate      DateTime?
   analysis     String?
   agreement    Agreement?
+  agreementVersions AgreementVersion[]
   milestones   Milestone[]
   activities   Activity[]
   submissions Submission[]
+  assessments Assessment[]
   notifications Notification[]
   emailLogs EmailLog[]
   payments Payment[]
@@ -69,6 +72,22 @@ model Agreement {
   deal               Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+  versions AgreementVersion[]
+}
+
+model AgreementVersion {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  agreementId String @db.ObjectId
+  version Int
+  body String
+  acceptanceCriteria String?
+  buyerApprovedAt DateTime?
+  providerApprovedAt DateTime?
+  createdAt DateTime @default(now())
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  agreement Agreement @relation(fields:[agreementId],references:[id],onDelete:Cascade)
+  @@unique([dealId,version])
 }
 
 model Milestone {
@@ -79,6 +98,7 @@ model Milestone {
   amount      Int
   position    Int
   status      String   @default("PENDING")
+  submissions Submission[]
   deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -124,6 +144,7 @@ model EmailLog {
   status String @default("QUEUED")
   attempts Int @default(0)
   lastError String?
+  payload String?
   nextAttemptAt DateTime?
   openedAt DateTime?
   clickedAt DateTime?
@@ -132,12 +153,17 @@ model EmailLog {
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   @@index([dealId,createdAt])
   @@index([resendId])
+  @@index([status,nextAttemptAt,attempts])
 }
 model WebhookEvent {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   providerEventId String @unique
   type String
+  payload String?
+  processedAt DateTime?
+  processingError String?
   createdAt DateTime @default(now())
+  @@index([type,createdAt])
 }
 model Submission {
   id String @id @default(auto()) @map("_id") @db.ObjectId
@@ -151,6 +177,32 @@ model Submission {
   author User @relation(fields:[submittedById],references:[id])
   createdAt DateTime @default(now())
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  milestone Milestone @relation(fields:[milestoneId],references:[id],onDelete:Cascade)
+  assessmentRecord Assessment?
+  urls String[] @default([])
+  fileMetadata String?
+  notes String?
+  status String @default("SUBMITTED")
+  @@index([dealId,createdAt])
+  @@index([milestoneId,createdAt])
+}
+model Assessment {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  submissionId String @unique @db.ObjectId
+  milestoneId String @db.ObjectId
+  agreementVersion Int
+  overallScore Int
+  status String
+  criteriaResults String
+  missingEvidence String
+  concerns String
+  recommendation String
+  explanation String
+  provider String @default("groq")
+  createdAt DateTime @default(now())
+  deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
+  submission Submission @relation(fields:[submissionId],references:[id],onDelete:Cascade)
   @@index([dealId,createdAt])
 }
 model KnowledgeChunk {
@@ -180,10 +232,15 @@ model Payment {
   amount Int
   currency String
   status String @default("CREATED")
+  agreementVersion Int @default(1)
+  attempt Int?
+  paypalPayerId String?
+  failureReason String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   @@index([dealId,status])
+  @@index([dealId,agreementVersion,attempt])
 }
 model Dispute {
   id String @id @default(auto()) @map("_id") @db.ObjectId
