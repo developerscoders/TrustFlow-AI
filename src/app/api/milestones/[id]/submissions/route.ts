@@ -34,21 +34,21 @@ async function assessSubmission(submissionId:string,milestoneId:string){
  for(const recipient of recipients)void sendWorkflowEmail({dealId:submission.dealId,to:recipient.email,type:'ASSESSMENT_RESULT',dealTitle:submission.deal.title,message:'An advisory assessment is ready for milestone: '+milestone.title+'. Review it with the other participant.',key:'assessment-'+saved.id+'-'+recipient.id}).catch(()=>null);
  return {assessment,saved};
 }
-export async function GET(_:Request,{params}:{params:{id:string}}){
+export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
- const milestone=await db.milestone.findUnique({where:{id:params.id},include:{deal:true}});
+ const milestone=await db.milestone.findUnique({where:{id:id},include:{deal:true}});
  if(!milestone||![milestone.deal.buyerId,milestone.deal.providerId].includes(user.id))return NextResponse.json({error:'Not found.'},{status:404});
- const submissions=await db.submission.findMany({where:{milestoneId:params.id},orderBy:{createdAt:'desc'}});
+ const submissions=await db.submission.findMany({where:{milestoneId:id},orderBy:{createdAt:'desc'}});
  return NextResponse.json(submissions.map(s=>({...s,fileMetadata:(JSON.parse(s.fileMetadata||'[]') as any[]).map(f=>({id:f.id,filename:f.filename,contentType:f.contentType,size:f.size,url:'/api/submissions/'+s.id+'/files/'+f.id}))})));
 }
-export async function POST(req:Request,{params}:{params:{id:string}}){
+export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;
  const invalid=mutationError(req);if(invalid)return invalid;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  if(!rateLimit('submission:'+user.id,12))return NextResponse.json({error:'Too many submissions. Try again later.'},{status:429});
  let raw:unknown;try{raw=await req.json()}catch{return NextResponse.json({error:'Invalid JSON.'},{status:400})}
  const value=input.safeParse(raw);if(!value.success)return NextResponse.json({error:value.error.issues[0]?.message||'Invalid evidence submission.'},{status:400});
  if(value.data.urls.some(url=>!validateEvidenceUrl(url)))return NextResponse.json({error:'Only public HTTP or HTTPS evidence URLs are accepted. Local/private network addresses are blocked.'},{status:400});
- const milestone=await db.milestone.findUnique({where:{id:params.id},include:{deal:{include:{agreement:true}}}});
+ const milestone=await db.milestone.findUnique({where:{id:id},include:{deal:{include:{agreement:true}}}});
  if(!milestone)return NextResponse.json({error:'Milestone not found.'},{status:404});
  const agreement=milestone.deal.agreement;
  if(!agreement)return NextResponse.json({error:'An agreement must exist before evidence can be submitted.'},{status:409});

@@ -5,10 +5,10 @@ import {audit,notifyUsers} from '@/lib/events';
 import {sendWorkflowEmail} from '@/lib/mailer';
 import {indexDealText} from '@/lib/rag';
 import {mutationError} from '@/lib/security';
-export async function POST(req:Request,{params}:{params:{id:string}}){
+export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;
  const invalid=mutationError(req);if(invalid)return invalid;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
- const deal=await db.deal.findFirst({where:{id:params.id,OR:[{buyerId:user.id},{providerId:user.id}]},include:{agreement:true}});
+ const deal=await db.deal.findFirst({where:{id:id,OR:[{buyerId:user.id},{providerId:user.id}]},include:{agreement:true}});
  if(!deal?.agreement)return NextResponse.json({error:'Deal or agreement not found.'},{status:404});
  const buyer=deal.buyerId===user.id,now=new Date(),agreement=deal.agreement;const criteria=agreement.body.split(/\r?\n/).map(line=>line.trim()).filter(line=>line.startsWith('• ')).map(line=>line.slice(2).trim()).filter(Boolean);
  const data=buyer?{buyerApprovedAt:now,buyerApproverId:user.id}:{providerApprovedAt:now,providerApproverId:user.id};

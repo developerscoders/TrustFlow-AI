@@ -21,7 +21,7 @@ export function FloatingAskAI(){
     finally{setBusy(false);}
   }
   return <div style={{position:'fixed',right:22,bottom:22,zIndex:40,fontFamily:'Arial,sans-serif'}}>
-    {open&&<section role="dialog" aria-label="Ask TrustFlow AI" style={{width:'min(360px,calc(100vw - 30px))',maxHeight:'min(520px,70vh)',overflow:'auto',marginBottom:12,border:'1px solid #EADFCB',borderRadius:18,background:'#FFFDF8',boxShadow:'0 18px 55px #1f293733',padding:18}}>
+    {open&&<section role="dialog" aria-label="Ask TrustFlow AI" style={{position:'fixed',right:22,top:18,width:'min(360px,calc(100vw - 30px))',maxHeight:'min(340px,calc(100dvh - 280px))',overflow:'auto',marginBottom:0,border:'1px solid #EADFCB',borderRadius:18,background:'#FFFDF8',boxShadow:'0 18px 55px #1f293733',padding:18}}>
       <header style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:12}}>
         <div style={{display:'flex',alignItems:'center',gap:9}}><span style={{width:34,height:34,borderRadius:11,background:'#EEF2FF',color:'#2F5BEA',display:'grid',placeItems:'center'}}><Bot size={18}/></span><div><strong style={{fontSize:13,color:'#1F2937'}}>Ask TrustFlow AI</strong><div style={{fontSize:10,color:'#64748B'}}>Context-aware deal assistant</div></div></div>
         <button type="button" onClick={()=>setOpen(false)} aria-label="Close assistant" style={{border:0,background:'transparent',color:'#64748B',padding:5}}><X size={17}/></button>

@@ -6,12 +6,12 @@ import {audit,notifyUsers} from '@/lib/events';
 import {mutationError} from '@/lib/security';
 import {sendWorkflowEmail} from '@/lib/mailer';
 const input=z.object({action:z.enum(['REQUEST_REVISION','HUMAN_REVIEW']),note:z.string().trim().max(2000).optional()});
-export async function POST(req:Request,{params}:{params:{id:string}}){
+export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;
  const invalid=mutationError(req);if(invalid)return invalid;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  let raw:unknown;try{raw=await req.json()}catch{return NextResponse.json({error:'Invalid JSON.'},{status:400})}
  const value=input.safeParse(raw);if(!value.success)return NextResponse.json({error:'Choose a valid review action.'},{status:400});
- const submission=await db.submission.findUnique({where:{id:params.id},include:{deal:true}});
+ const submission=await db.submission.findUnique({where:{id:id},include:{deal:true}});
  if(!submission||![submission.deal.buyerId,submission.deal.providerId].includes(user.id))return NextResponse.json({error:'Submission not found.'},{status:404});
  if(value.data.action==='REQUEST_REVISION'&&submission.deal.buyerId!==user.id)return NextResponse.json({error:'Only the buyer can request a revision.'},{status:403});
  const status=value.data.action==='REQUEST_REVISION'?'REVISION_REQUESTED':'HUMAN_REVIEW_REQUESTED';

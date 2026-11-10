@@ -77,9 +77,9 @@
 @media(prefers-reduced-motion:reduce){.visual-line-fill,.beam-orb{animation:none!important}}
 
 .workspace-dock{position:fixed;z-index:35;left:15px;top:50%;transform:translateY(-50%);display:grid;gap:7px;padding:8px;border:1px solid #EADFCB;border-radius:16px;background:#FFFDF8;box-shadow:0 12px 35px #1f29371a}
-.workspace-dock button{width:42px;height:42px;border:0;border-radius:11px;background:transparent;color:#64748B;display:flex;align-items:center;justify-content:center;gap:10px;overflow:hidden;transition:width .18s ease,background .18s ease,color .18s ease;padding:0 12px}
-.workspace-dock button span{display:none;white-space:nowrap;font-size:11px;font-weight:600}
-.workspace-dock button:hover,.workspace-dock button:focus-visible{width:140px;justify-content:flex-start;background:#EEF2FF;color:#2F5BEA;outline:none}
-.workspace-dock button:hover span,.workspace-dock button:focus-visible span{display:inline}
+.workspace-dock button{width:150px;min-height:42px;border:0;border-radius:11px;background:transparent;color:#64748B;display:flex;align-items:center;justify-content:flex-start;gap:10px;overflow:hidden;transition:background .18s ease,color .18s ease;padding:0 12px;text-align:left}
+.workspace-dock button span{display:inline;white-space:nowrap;font-size:12px;font-weight:600}
+.workspace-dock button:hover,.workspace-dock button:focus-visible{background:#EEF2FF;color:#2F5BEA;outline:none}
 #agreement,#milestones,#payment,#discussion,#activity{scroll-margin-top:24px}
-@media(max-width:800px){.workspace-dock{left:50%;top:auto;bottom:12px;transform:translateX(-50%);display:flex;gap:3px;padding:6px;border-radius:15px}.workspace-dock button{width:39px;height:39px;padding:0;justify-content:center}.workspace-dock button:hover,.workspace-dock button:focus-visible{width:39px;justify-content:center}.workspace-dock button span{display:none!important}.workspace-dock button:hover span{display:none!important}}
+@media(max-width:800px){.workspace-dock{left:50%;top:auto;bottom:12px;max-width:calc(100vw - 24px);overflow-x:auto;transform:translateX(-50%);display:flex;gap:3px;padding:6px;border-radius:15px}.workspace-dock button{width:auto;min-height:39px;flex:0 0 auto;padding:0 9px;justify-content:center}.workspace-dock button span{display:inline!important;font-size:10px}.workspace-dock button:hover,.workspace-dock button:focus-visible{justify-content:center}}
+@media(max-width:420px){.workspace-dock button{gap:5px;padding:0 7px}.workspace-dock button span{font-size:9px}}

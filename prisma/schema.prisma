@@ -38,6 +38,7 @@ model Deal {
   currency     String      @default("USD")
   buyerName    String
   providerName String
+  providerEmail String?
   buyerId      String      @db.ObjectId
   providerId   String?     @db.ObjectId
   buyer        User        @relation("BuyerDeals", fields: [buyerId], references: [id])
@@ -139,20 +140,23 @@ model EmailLog {
   dealId String @db.ObjectId
   toEmail String
   type String
-  resendId String?
+  messageId String? @map("resendId")
   idempotencyKey String @unique
   status String @default("QUEUED")
   attempts Int @default(0)
   lastError String?
   payload String?
   nextAttemptAt DateTime?
+  sendingStartedAt DateTime?
+  sentAt DateTime?
+  // Retained for historical provider data; Gmail SMTP does not set open/click tracking.
   openedAt DateTime?
   clickedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deal Deal @relation(fields:[dealId],references:[id],onDelete:Cascade)
   @@index([dealId,createdAt])
-  @@index([resendId])
+  @@index([messageId])
   @@index([status,nextAttemptAt,attempts])
 }
 model WebhookEvent {

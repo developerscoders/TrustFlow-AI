@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { createSession, verifyPassword } from '@/lib/auth';
 import { mutationError, rateLimit } from '@/lib/security';
 import { getDatabaseUnavailableMessage, logDatabaseFailure } from '@/lib/database-errors';
+import { linkPendingInvitations } from '@/lib/pending-invitations';
 
 export const runtime = 'nodejs';
 
@@ -51,6 +52,12 @@ export async function POST(req: Request) {
         { error: 'Email or password is incorrect.' },
         { status: 401 },
       );
+    }
+
+    try {
+      await linkPendingInvitations(user);
+    } catch (error) {
+      logDatabaseFailure('auth:login:pending-invitations', error);
     }
 
     await createSession(user.id);

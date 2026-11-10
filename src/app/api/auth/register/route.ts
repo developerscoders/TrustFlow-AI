@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { createSession, hashPassword } from '@/lib/auth';
 import { mutationError, rateLimit } from '@/lib/security';
 import { getDatabaseUnavailableMessage, logDatabaseFailure } from '@/lib/database-errors';
+import { linkPendingInvitations } from '@/lib/pending-invitations';
 
 export const runtime = 'nodejs';
 
@@ -63,6 +64,13 @@ export async function POST(req: Request) {
         passwordHash: await hashPassword(parsed.data.password),
       },
     });
+
+    try {
+      await linkPendingInvitations(user);
+    } catch (error) {
+      // Keep sign-in available if linking an older invitation needs to be retried.
+      logDatabaseFailure('auth:register:pending-invitations', error);
+    }
 
     await createSession(user.id);
     return NextResponse.json(

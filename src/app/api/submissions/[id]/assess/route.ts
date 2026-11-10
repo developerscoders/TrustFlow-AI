@@ -6,18 +6,18 @@ import {audit,notifyUsers} from '@/lib/events';
 import {sendWorkflowEmail} from '@/lib/mailer';
 import {mutationError,rateLimit} from '@/lib/security';
 import {readEvidenceFile} from '@/lib/private-storage';
-export async function GET(_:Request,{params}:{params:{id:string}}){
+export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
- const submission=await db.submission.findUnique({where:{id:params.id},include:{deal:true}});
+ const submission=await db.submission.findUnique({where:{id:id},include:{deal:true}});
  if(!submission||![submission.deal.buyerId,submission.deal.providerId].includes(user.id))return NextResponse.json({error:'Not found.'},{status:404});
  const assessment=await db.assessment.findUnique({where:{submissionId:submission.id}});
  return NextResponse.json(assessment?[assessment]:[]);
 }
-export async function POST(req:Request,{params}:{params:{id:string}}){
+export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;
  const invalid=mutationError(req);if(invalid)return invalid;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  if(!rateLimit('assessment-retry:'+user.id,8))return NextResponse.json({error:'Too many assessment retries.'},{status:429});
- const submission=await db.submission.findUnique({where:{id:params.id},include:{deal:true}});
+ const submission=await db.submission.findUnique({where:{id:id},include:{deal:true}});
  if(!submission||![submission.deal.buyerId,submission.deal.providerId].includes(user.id))return NextResponse.json({error:'Submission not found.'},{status:404});
  if(submission.status==='ASSESSED')return NextResponse.json({error:'This submission already has an assessment.'},{status:409});
  const previous=await db.assessment.findUnique({where:{submissionId:submission.id}});if(previous){const restored={overallScore:previous.overallScore,status:previous.status,criteriaResults:JSON.parse(previous.criteriaResults),missingEvidence:JSON.parse(previous.missingEvidence),concerns:JSON.parse(previous.concerns),recommendation:previous.recommendation,explanation:previous.explanation};await db.submission.update({where:{id:submission.id},data:{status:'ASSESSED',assessment:JSON.stringify(restored)}});return NextResponse.json({status:'ASSESSED',assessment:restored,assessmentId:previous.id,reused:true})}
