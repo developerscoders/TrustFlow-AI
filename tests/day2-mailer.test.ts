@@ -28,6 +28,7 @@ function mockEmailDb(existing: any = null) {
       return state.record;
     },
     updateMany: async ({ where, data }: any) => {
+      assert.ok(where.OR?.some((condition: any) => condition.nextAttemptAt?.isSet === false));
       const due = !state.record?.nextAttemptAt || state.record.nextAttemptAt <= new Date();
       if (
         !state.record ||

@@ -19,16 +19,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!deal.providerEmail) return NextResponse.json({ error: 'This deal has no provider email to invite.' }, { status: 409 });
 
   if (deal.providerId) {
-    await db.notification.create({
-      data: {
-        userId: deal.providerId,
-        dealId: deal.id,
-        title: 'Agreement approval required',
-        message: `Review and approve the current agreement for ${deal.title}.`,
-        type: 'AGREEMENT',
-      },
+    const notice = await db.notification.findFirst({
+      where: { userId: deal.providerId, dealId: deal.id, type: 'AGREEMENT' },
+      select: { id: true },
     });
+    if (!notice) {
+      await db.notification.create({
+        data: {
+          userId: deal.providerId,
+          dealId: deal.id,
+          title: 'Agreement approval required',
+          message: `Review and approve the current agreement for ${deal.title}.`,
+          type: 'AGREEMENT',
+        },
+      });
+    }
   }
+
+  const queuedInvite = await db.emailLog.findFirst({
+    where: {
+      dealId: deal.id,
+      toEmail: deal.providerEmail.toLowerCase(),
+      type: 'DEAL_INVITATION',
+      status: 'QUEUED',
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { idempotencyKey: true },
+  });
 
   const result = await sendWorkflowEmail({
     dealId: deal.id,
@@ -38,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     message: deal.providerId
       ? `${user.name} asked you to review and approve the current agreement.`
       : `${user.name} invited you to TrustFlow. Create an account using this email address to open and approve the deal.`,
-    key: `invite-${deal.id}-${deal.providerEmail.toLowerCase()}-${Math.floor(Date.now() / 60_000)}`,
+    key: queuedInvite?.idempotencyKey ?? `invite-${deal.id}-${deal.providerEmail.toLowerCase()}-${Math.floor(Date.now() / 60_000)}`,
   });
   if (!result.ok) {
     const missingConfig = result.reason.startsWith('SMTP configuration required.');

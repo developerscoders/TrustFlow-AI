@@ -13,9 +13,13 @@ export async function POST(req: Request) {
   const now = new Date();
   const logs = await db.emailLog.findMany({
     where: {
-      status: 'FAILED',
+      status: { in: ['FAILED', 'QUEUED'] },
       attempts: { lt: 3 },
-      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      OR: [
+        { nextAttemptAt: null },
+        { nextAttemptAt: { isSet: false } },
+        { nextAttemptAt: { lte: now } },
+      ],
       deal: { OR: [{ buyerId: user.id }, { providerId: user.id }] },
     },
     take: 10,

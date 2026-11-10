@@ -1,20 +1,44 @@
 import { db } from './db';
 
 export async function linkPendingInvitations(user: { id: string; email: string; name: string }) {
+  const email = user.email.trim().toLowerCase();
+  const unlinkedProvider = {
+    providerEmail: email,
+    OR: [{ providerId: null }, { providerId: { isSet: false } }],
+  };
   const pending = await db.deal.findMany({
-    where: { providerEmail: user.email, providerId: null },
+    where: unlinkedProvider,
     select: { id: true, title: true },
   });
-  if (!pending.length) return 0;
 
-  const linked = await db.deal.updateMany({
-    where: { id: { in: pending.map((deal) => deal.id) }, providerEmail: user.email, providerId: null },
-    data: { providerId: user.id, providerName: user.name },
+  const linked = pending.length
+    ? await db.deal.updateMany({
+        where: {
+          id: { in: pending.map((deal) => deal.id) },
+          ...unlinkedProvider,
+        },
+        data: { providerId: user.id, providerName: user.name },
+      })
+    : { count: 0 };
+
+  // Repair notifications too if an earlier linking attempt updated the deal
+  // but failed before it could create the notices.
+  const linkedDeals = await db.deal.findMany({
+    where: { providerId: user.id, providerEmail: email },
+    select: { id: true, title: true },
   });
-  if (!linked.count) return 0;
+  if (!linkedDeals.length) return linked.count;
 
-  await db.notification.createMany({
-    data: pending.flatMap((deal) => [
+  const existing = await db.notification.findMany({
+    where: {
+      userId: user.id,
+      dealId: { in: linkedDeals.map((deal) => deal.id) },
+      type: { in: ['INVITATION', 'AGREEMENT'] },
+    },
+    select: { dealId: true, type: true },
+  });
+  const existingKeys = new Set(existing.map((notice) => `${notice.dealId}:${notice.type}`));
+  const notifications = linkedDeals.flatMap((deal) => [
       {
         userId: user.id,
         dealId: deal.id,
@@ -29,8 +53,9 @@ export async function linkPendingInvitations(user: { id: string; email: string; 
         message: `Review and approve agreement version 1 for ${deal.title}.`,
         type: 'AGREEMENT',
       },
-    ]),
-  });
+    ]).filter((notice) => !existingKeys.has(`${notice.dealId}:${notice.type}`));
+
+  if (notifications.length) await db.notification.createMany({ data: notifications });
 
   return linked.count;
 }

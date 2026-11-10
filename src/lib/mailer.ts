@@ -110,7 +110,11 @@ export async function sendDealEmail(input: EmailInput, sender: EmailSender = sen
       id: log.id,
       status: { in: ['QUEUED', 'FAILED'] },
       attempts: { lt: 3 },
-      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      OR: [
+        { nextAttemptAt: null },
+        { nextAttemptAt: { isSet: false } },
+        { nextAttemptAt: { lte: now } },
+      ],
     },
     data: {
       status: 'SENDING',
