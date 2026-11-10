@@ -25,7 +25,7 @@ export function NegotiationPanel({dealId}:{dealId:string}){
     }catch(e){setError(e instanceof Error?e.message:'Could not send message.');}
     finally{setBusy(false);}
   }
-  return <section className="card" style={{padding:21}}>
+  return <section id="discussion" className="card" style={{padding:21}}>
     <div className="eyebrow"><MessageCircle size={13}/> Deal discussion</div>
     <p className="dealmeta">Keep scope clarifications and negotiation notes with the deal. Formal agreement changes still require a new agreement version and approval.</p>
     <div style={{display:'grid',gap:9,maxHeight:280,overflowY:'auto',padding:'8px 0'}}>
