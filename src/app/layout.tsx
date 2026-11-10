@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import {FloatingAskAI} from '@/components/floating-ask-ai';
+import {WorkspaceDock} from '@/components/workspace-dock';
 
 export const metadata: Metadata = {
   title: 'TrustFlow AI — Make a deal. Build trust.',
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}) {
-  return <html lang="en"><body>{children}<FloatingAskAI/></body></html>;
+  return <html lang="en"><body>{children}<WorkspaceDock/><FloatingAskAI/></body></html>;
 }
