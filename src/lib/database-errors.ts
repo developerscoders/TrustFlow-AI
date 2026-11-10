@@ -1,6 +1,6 @@
 export function getDatabaseUnavailableMessage(error?: unknown): string {
   if (!process.env.DATABASE_URL?.trim()) {
-    return 'DATABASE_URL is not configured. Add your MongoDB Atlas connection string to .env.local, then restart the development server.';
+    return 'DATABASE_URL is not configured. Add your MongoDB Atlas connection string to the project-root .env.local or .env file, then restart the development server.';
   }
 
   const value = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
