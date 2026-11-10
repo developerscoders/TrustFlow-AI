@@ -39,6 +39,8 @@ npm run dev
 
 Open http://localhost:3000 for the public landing page. Create an account at `/register` and open the authenticated workspace at `/dashboard`. The first account can create a deal after the provider has also registered. The provider must set their receiving PayPal merchant email in the deal workspace before the buyer can check out. Sign in at `/login`. The workspace derives the buyer identity from the authenticated session.
 
+If login or registration returns HTTP 503, open [http://localhost:3000/api/health/database](http://localhost:3000/api/health/database). It reports whether `DATABASE_URL` is missing or MongoDB is unreachable. Confirm the Atlas cluster is running, the current network/IP is allowed in Atlas Network Access, and the username/password in `DATABASE_URL` are correct (URL-encode special characters in the password). Then run `npx prisma db push` and restart `npm run dev`. The auth API also writes the detailed server-side failure to the terminal without logging connection credentials.
+
 The optional development seed is available with `npm run db:seed` where configured. Do not use demo credentials in production.
 
 ## Environment
