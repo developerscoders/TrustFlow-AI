@@ -19,7 +19,12 @@ function getSafeNextPath(value: string | null): string {
   }
 
   // Do not allow encoded backslashes or protocol-relative redirect tricks.
-  const decoded = decodeURIComponent(value);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    return '/dashboard';
+  }
   if (decoded.startsWith('//') || decoded.includes('\\')) return '/dashboard';
 
   return value;
