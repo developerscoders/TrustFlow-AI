@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feature/day-2-final-completion]
+    branches: [main, feature/day-2-final-completion, trustflow/day1-day3-from-main]
   workflow_dispatch:
 permissions:
   contents: read

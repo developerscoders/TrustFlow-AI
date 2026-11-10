@@ -1,3 +1,28 @@
-import {NextResponse} from 'next/server';import {z} from 'zod';import {db} from '@/lib/db';import {createSession,hashPassword} from '@/lib/auth';
+import {NextResponse} from 'next/server';
+import {z} from 'zod';
+import {db} from '@/lib/db';
+import {createSession,hashPassword} from '@/lib/auth';
+import {mutationError,rateLimit} from '@/lib/security';
+
 const input=z.object({name:z.string().trim().min(2).max(100),email:z.string().trim().email().max(254),password:z.string().min(12).max(128)});
-export async function POST(req:Request){try{const v=input.parse(await req.json());const exists=await db.user.findUnique({where:{email:v.email.toLowerCase()}});if(exists)return NextResponse.json({error:'An account with this email already exists.'},{status:409});const user=await db.user.create({data:{name:v.name,email:v.email.toLowerCase(),passwordHash:await hashPassword(v.password)}});await createSession(user.id);return NextResponse.json({id:user.id,name:user.name,email:user.email},{status:201});}catch(e){return NextResponse.json({error:e instanceof z.ZodError?'Enter a valid name, email, and password of at least 12 characters.':'Registration unavailable.'},{status:e instanceof z.ZodError?400:500});}}
+
+export async function POST(req:Request){
+  const invalid=mutationError(req);
+  if(invalid)return invalid;
+  let raw:unknown;
+  try{raw=await req.json()}catch{return NextResponse.json({error:'Invalid request body.'},{status:400})}
+  const parsed=input.safeParse(raw);
+  if(!parsed.success)return NextResponse.json({error:'Enter a valid name, email, and password of at least 12 characters.'},{status:400});
+  const email=parsed.data.email.toLowerCase();
+  if(!rateLimit('auth:register:'+email,3,60*60_000))return NextResponse.json({error:'Too many registration attempts. Try again later.'},{status:429});
+  try{
+    const exists=await db.user.findUnique({where:{email}});
+    if(exists)return NextResponse.json({error:'An account with this email already exists.'},{status:409});
+    const user=await db.user.create({data:{name:parsed.data.name,email,passwordHash:await hashPassword(parsed.data.password)}});
+    await createSession(user.id);
+    return NextResponse.json({id:user.id,name:user.name,email:user.email},{status:201});
+  }catch(error){
+    if(typeof error==='object'&&error!==null&&'code'in error&&(error as {code?:string}).code==='P2002')return NextResponse.json({error:'An account with this email already exists.'},{status:409});
+    return NextResponse.json({error:'Registration is temporarily unavailable. Please try again.'},{status:503});
+  }
+}
