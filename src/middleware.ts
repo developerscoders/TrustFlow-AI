@@ -11,7 +11,7 @@ export function middleware(req:NextRequest){
   if(pathname==='/login'||pathname==='/register')return NextResponse.next();
 
   const hasSession=!!req.cookies.get(sessionCookie)?.value;
-  const protectedPage=pathname==='/'||pathname==='/dashboard'||pathname.startsWith('/deals')||pathname.startsWith('/notifications');
+  const protectedPage=pathname==='/dashboard'||pathname.startsWith('/deals')||pathname.startsWith('/notifications');
   if(protectedPage&&!hasSession){
     const url=new URL('/login',req.url);
     url.searchParams.set('next',pathname+search);
