@@ -2,23 +2,33 @@ import {randomUUID,createHash} from 'node:crypto';
 
 const apiBase=()=>process.env.PAYPAL_ENV==='live'?'https://api-m.paypal.com':'https://api-m.sandbox.paypal.com';
 export const paypalConfigured=()=>Boolean(process.env.PAYPAL_CLIENT_ID&&process.env.PAYPAL_CLIENT_SECRET);
+export class PayPalRequestError extends Error{
+ constructor(message:string,readonly stage:'oauth'|'api',readonly status:number,readonly issue:string){super(message);this.name='PayPalRequestError'}
+}
 type TokenCache={value:string;expiresAt:number};
 let tokenCache:TokenCache|undefined;
 async function accessToken():Promise<string>{
  if(!paypalConfigured())throw new Error('PayPal credentials are not configured.');
  if(tokenCache&&tokenCache.expiresAt>Date.now()+30_000)return tokenCache.value;
  const auth=Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
- const response=await fetch(`${apiBase()}/v1/oauth2/token`,{method:'POST',headers:{Authorization:`Basic ${auth}`,'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials',cache:'no-store'});
- if(!response.ok)throw new Error(`PayPal OAuth failed (${response.status}).`);
- const body=await response.json() as {access_token:string;expires_in:number};
+ let response:Response;
+ try{response=await fetch(`${apiBase()}/v1/oauth2/token`,{method:'POST',headers:{Authorization:`Basic ${auth}`,'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials',cache:'no-store',signal:AbortSignal.timeout(15_000)})}
+ catch{throw new PayPalRequestError('Could not connect to PayPal to authorize checkout. Check server network access and try again.','oauth',0,'PAYPAL_NETWORK_ERROR')}
+ if(!response.ok){const status=response.status;const issue=status===401?'INVALID_CLIENT_CREDENTIALS':`OAUTH_HTTP_${status}`;throw new PayPalRequestError(status===401?'PayPal rejected the server credentials. Confirm PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are a matching Sandbox pair.':`PayPal OAuth failed (${status}).`,'oauth',status,issue)}
+ let body:{access_token:string;expires_in:number};
+ try{body=await response.json() as {access_token:string;expires_in:number}}
+ catch{throw new PayPalRequestError('PayPal returned an invalid authorization response.','oauth',502,'INVALID_OAUTH_RESPONSE')}
+ if(!body.access_token||!Number.isFinite(body.expires_in))throw new PayPalRequestError('PayPal returned an incomplete authorization response.','oauth',502,'INVALID_OAUTH_RESPONSE');
  tokenCache={value:body.access_token,expiresAt:Date.now()+body.expires_in*1000};return body.access_token;
 }
 export async function paypalRequest<T=any>(path:string,method='GET',body?:unknown,requestId?:string):Promise<T>{
  const token=await accessToken();const headers:Record<string,string>={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
  if(requestId)headers['PayPal-Request-Id']=requestId;
- const response=await fetch(`${apiBase()}${path}`,{method,headers,...(body!==undefined?{body:JSON.stringify(body)}:{}),cache:'no-store'});
+ let response:Response;
+ try{response=await fetch(`${apiBase()}${path}`,{method,headers,...(body!==undefined?{body:JSON.stringify(body)}:{}),cache:'no-store',signal:AbortSignal.timeout(20_000)})}
+ catch{throw new PayPalRequestError('Could not connect to PayPal to create the checkout order. Check server network access and try again.','api',0,'PAYPAL_NETWORK_ERROR')}
  const raw=await response.text();let data:any={};try{data=raw?JSON.parse(raw):{}}catch{data={message:'Invalid PayPal response'}};
- if(!response.ok){const issue=data?.details?.[0]?.issue||data?.name||'PAYPAL_ERROR';throw new Error(`PayPal ${issue} (${response.status}).`)}
+ if(!response.ok){const issue=String(data?.details?.[0]?.issue||data?.name||'PAYPAL_ERROR').replace(/[^A-Z0-9_ -]/gi,'').slice(0,100);throw new PayPalRequestError(`PayPal rejected the checkout order: ${issue} (${response.status}).`,'api',response.status,issue)}
  return data as T;
 }
 export async function createPayPalOrder(input:{dealId:string;title:string;amount:number;currency:string;payeeEmail:string;requestId?:string}){

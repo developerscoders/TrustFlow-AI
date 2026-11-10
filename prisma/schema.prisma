@@ -232,6 +232,8 @@ model Payment {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   dealId String @db.ObjectId
   paypalOrderId String @unique
+  // Pending rows carry `pending:<paypalOrderId>` in this unique field until a
+  // verified capture replaces it; MongoDB unique indexes treat missing values alike.
   captureId String? @unique
   amount Int
   currency String
