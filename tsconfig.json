@@ -15,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -33,12 +33,11 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next-verify-2/types/**/*.ts",
-    ".next-verify-day2/types/**/*.ts",
-    ".next-auth-verify/types/**/*.ts",
-    ".next-auth-verify-2/types/**/*.ts"
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next-verify*",
+    ".next-auth-verify*"
   ]
 }

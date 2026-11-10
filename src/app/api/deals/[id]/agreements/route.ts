@@ -7,12 +7,12 @@ import {mutationError} from '@/lib/security';
 import {indexDealText} from '@/lib/rag';
 function criteriaFromBody(body:string){return body.split(/\r?\n/).map(line=>line.trim()).filter(line=>line.startsWith('• ')).map(line=>line.slice(2).trim()).filter(Boolean)}
 const input=z.object({body:z.string().trim().min(40).max(20000)});
-export async function PATCH(req:Request,{params}:{params:{id:string}}){
+export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;
  const invalid=mutationError(req);if(invalid)return invalid;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  let raw:unknown;try{raw=await req.json()}catch{return NextResponse.json({error:'Invalid JSON.'},{status:400})}
  const value=input.safeParse(raw);if(!value.success)return NextResponse.json({error:'Agreement text must be 40–20,000 characters.'},{status:400});
- const deal=await db.deal.findFirst({where:{id:params.id,buyerId:user.id},include:{agreement:true}});
+ const deal=await db.deal.findFirst({where:{id:id,buyerId:user.id},include:{agreement:true}});
  if(!deal?.agreement)return NextResponse.json({error:'Deal or agreement not found.'},{status:404});
  const current=deal.agreement;
  await db.agreementVersion.upsert({where:{dealId_version:{dealId:deal.id,version:current.version}},create:{dealId:deal.id,agreementId:current.id,version:current.version,body:current.body,acceptanceCriteria:JSON.stringify(criteriaFromBody(current.body)),buyerApprovedAt:current.buyerApprovedAt,providerApprovedAt:current.providerApprovedAt},update:{}});

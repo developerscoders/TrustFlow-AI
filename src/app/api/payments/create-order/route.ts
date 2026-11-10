@@ -2,7 +2,8 @@ import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {currentUser} from '@/lib/auth';
 import {db} from '@/lib/db';
-import {createPayPalOrder,paypalConfigured} from '@/lib/paypal';
+import {createPayPalOrder,paypalConfigured,PayPalRequestError} from '@/lib/paypal';
+import {createAndPersistPayPalOrder,PaymentPersistenceError} from '@/lib/paypal-order-persistence';
 import {audit} from '@/lib/events';
 import {mutationError,rateLimit} from '@/lib/security';
 import {canInitiatePayment} from '@/lib/workflow-authorization';
@@ -24,13 +25,25 @@ export async function POST(req:Request){
   if(existing&&existing.status!=='FAILED'&&existing.status!=='CANCELLED')return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,status:existing.status,reused:true});
   if(existing?.status==='FAILED'&&existing.failureReason!=='PAYMENT.CAPTURE.DENIED')return NextResponse.json({error:'This PayPal attempt requires review before another charge can be initiated.'},{status:409});
   const attempt=(existing?.attempt||0)+1;
-  const requestKey=`trustflow-order-${deal.id}-v${deal.agreement.version}-a${attempt}`;
-  const order=await createPayPalOrder({dealId:deal.id,title:deal.title,amount:deal.amount,currency:deal.currency,payeeEmail:deal.provider.paypalMerchantEmail,requestId:requestKey});
-  if(!order.id)throw new Error('PayPal did not return an order ID.');
-  let payment;
-  try{payment=await db.payment.create({data:{dealId:deal.id,paypalOrderId:order.id,amount:deal.amount,currency:deal.currency,status:'CREATED',agreementVersion:deal.agreement.version,attempt}})}
-  catch{const duplicate=await db.payment.findUnique({where:{paypalOrderId:order.id}});if(!duplicate)throw new Error('PayPal order was created but could not be recorded. Retry checkout.');payment=duplicate}
+  const {order,payment}=await createAndPersistPayPalOrder({
+   dealId:deal.id,buyerId:deal.buyerId,providerId:deal.providerId,title:deal.title,amount:deal.amount,
+   currency:deal.currency,payeeEmail:deal.provider.paypalMerchantEmail,agreementVersion:deal.agreement.version,attempt,
+  },{
+   createPayPalOrder,
+   createPayment:data=>db.payment.create({data}),
+   findPaymentByPayPalOrderId:paypalOrderId=>db.payment.findUnique({where:{paypalOrderId}}),
+  });
   await audit(deal.id,'PAYMENT_INITIATED','PayPal checkout order created.',user.name,user.id,{type:'PAYMENT',id:payment.id});
   return NextResponse.json({id:order.id,amount:payment.amount,currency:payment.currency},{status:201});
- }catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Could not create PayPal order.'},{status:502})}
+ }catch(error){
+  if(error instanceof PayPalRequestError){
+   console.error('[TrustFlow][payment:create-order] PayPal request failed',{stage:error.stage,status:error.status,issue:error.issue});
+   return NextResponse.json({error:error.message,stage:error.stage,issue:error.issue},{status:error.stage==='oauth'&&error.status===401?503:502});
+  }
+  if(error instanceof PaymentPersistenceError){
+   return NextResponse.json({error:error.message,stage:'local',prismaCode:error.prismaCode},{status:502});
+  }
+  console.error('[TrustFlow][payment:create-order] Local order creation failed',error instanceof Error?error.message:'Unknown error');
+  return NextResponse.json({error:error instanceof Error?error.message:'Could not create PayPal order.',stage:'local'},{status:502});
+ }
 }

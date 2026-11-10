@@ -39,6 +39,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
   const isRegister = mode === 'register';
   const nextPath = getSafeNextPath(searchParams.get('next'));
+  const authSwitchHref = `${isRegister ? '/login' : '/register'}${searchParams.get('next') ? `?next=${encodeURIComponent(nextPath)}` : ''}`;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -242,7 +243,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
         <p className="dealmeta" style={{ marginTop: 18 }}>
           {isRegister ? 'Already have an account?' : 'New to TrustFlow?'}{' '}
-          <a className="textlink" href={isRegister ? '/login' : '/register'}>
+          <a className="textlink" href={authSwitchHref}>
             {isRegister ? 'Sign in' : 'Create an account'}
           </a>
         </p>

@@ -1,8 +1,4 @@
 export function getDatabaseUnavailableMessage(error?: unknown): string {
-  if (!process.env.DATABASE_URL?.trim()) {
-    return 'DATABASE_URL is not configured. Add your MongoDB Atlas connection string to the project-root .env.local or .env file, then restart the development server.';
-  }
-
   const value = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
   const code = String(value.errorCode ?? value.code ?? '');
 
@@ -16,6 +12,10 @@ export function getDatabaseUnavailableMessage(error?: unknown): string {
 
   if (code === 'P1013') {
     return 'DATABASE_URL is malformed. Check the MongoDB connection string and URL-encode special characters in the password.';
+  }
+
+  if (!process.env.DATABASE_URL?.trim()) {
+    return 'DATABASE_URL is not configured. Add your MongoDB Atlas connection string to the project-root .env.local or .env file, then restart the development server.';
   }
 
   return 'The database request failed. Check the server terminal for the detailed error and verify your MongoDB Atlas connection.';

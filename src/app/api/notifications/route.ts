@@ -2,9 +2,11 @@ import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {currentUser} from '@/lib/auth';
 import {db} from '@/lib/db';
+import {linkPendingInvitations} from '@/lib/pending-invitations';
 const query=z.object({cursor:z.string().min(1).max(100).optional(),unread:z.enum(['true','false']).optional(),limit:z.coerce.number().int().min(1).max(100).default(30)});
 export async function GET(req:Request){
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
+ try{await linkPendingInvitations(user);}catch(error){console.error('[TrustFlow][notifications:list] Pending invite linking failed.',error instanceof Error?error.name:typeof error);}
  const parsed=query.safeParse(Object.fromEntries(new URL(req.url).searchParams));if(!parsed.success)return NextResponse.json({error:'Invalid notification query.'},{status:400});
  const {cursor,unread,limit}=parsed.data,where={userId:user.id,...(unread==='true'?{readAt:null}:{})};
  if(cursor){const anchor=await db.notification.findFirst({where:{id:cursor,...where},select:{id:true}});if(!anchor)return NextResponse.json({error:'Invalid notification cursor.'},{status:400});}
