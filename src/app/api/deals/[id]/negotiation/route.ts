@@ -2,7 +2,6 @@ import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {currentUser} from '@/lib/auth';
 import {db} from '@/lib/db';
-import {audit} from '@/lib/events';
 import {mutationError,rateLimit} from '@/lib/security';
 
 const input=z.object({message:z.string().trim().min(2).max(2000)});
