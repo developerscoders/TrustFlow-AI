@@ -26,7 +26,7 @@ export function FloatingAskAI(){
         <div style={{display:'flex',alignItems:'center',gap:9}}><span style={{width:34,height:34,borderRadius:11,background:'#EEF2FF',color:'#2F5BEA',display:'grid',placeItems:'center'}}><Bot size={18}/></span><div><strong style={{fontSize:13,color:'#1F2937'}}>Ask TrustFlow AI</strong><div style={{fontSize:10,color:'#64748B'}}>Context-aware deal assistant</div></div></div>
         <button type="button" onClick={()=>setOpen(false)} aria-label="Close assistant" style={{border:0,background:'transparent',color:'#64748B',padding:5}}><X size={17}/></button>
       </header>
-      <p style={{fontSize:11,lineHeight:1.6,color:'#64748B',margin:'0 0 12px'}}>Ask about this deal's approved agreement, milestones, or recorded evidence. AI suggestions do not change deal terms.</p>
+      <p style={{fontSize:11,lineHeight:1.6,color:'#64748B',margin:'0 0 12px'}}>Ask about this deal&apos;s approved agreement, milestones, or recorded evidence. AI suggestions do not change deal terms.</p>
       {answer&&<div aria-live="polite" style={{whiteSpace:'pre-wrap',fontSize:12,lineHeight:1.65,color:'#334155',background:'#F6F8FF',borderRadius:12,padding:12,marginBottom:12}}>{answer}</div>}
       {error&&<p role="alert" style={{fontSize:11,color:'#B42318'}}>{error}</p>}
       <form onSubmit={ask} style={{display:'flex',gap:7,alignItems:'end'}}>
