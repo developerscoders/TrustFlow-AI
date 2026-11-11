@@ -7,7 +7,9 @@ export function PayPalCheckout({ dealId, onVerified }: { dealId: string; onVerif
     const [state, setState] = useState<CheckoutState>('loading'), [message, setMessage] = useState('');
     useEffect(() => {
         mounted.current = true;
-        const client = process.env.PAYPAL_CLIENT_ID;
+        // PayPal's browser SDK requires the public client ID. The server-only
+        // PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET remain in the API routes.
+        const client = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
         if (!client) { setState('missing'); return () => { mounted.current = false } }
         const boot = async () => {
             if (!host.current || !window.paypal) return;
@@ -45,6 +47,6 @@ export function PayPalCheckout({ dealId, onVerified }: { dealId: string; onVerif
         }
         return () => { mounted.current = false };
     }, [dealId]);
-    if (state === 'missing') return <p className="dealmeta">PayPal checkout is not configured. Set PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and NEXT_PUBLIC_PAYPAL_CLIENT_ID for Sandbox.</p>;
+    if (state === 'missing') return <p className="dealmeta">PayPal checkout is not configured. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET for the server, plus NEXT_PUBLIC_PAYPAL_CLIENT_ID for the browser. Use matching Sandbox credentials and redeploy after changing Vercel environment variables.</p>;
     return <div><div ref={host} />{state === 'loading' && <p className="dealmeta">Loading PayPal Sandbox checkout…</p>}{state === 'processing' && <p className="dealmeta">{message || 'Verifying payment…'}</p>}{message && state !== 'processing' && <p className={state === 'error' ? 'error' : 'dealmeta'}>{message}</p>}{state === 'error' && <button type="button" className="secondary" onClick={() => { setMessage('Reload the deal page to restart checkout.'); }}>Checkout help</button>}</div>;
 }
