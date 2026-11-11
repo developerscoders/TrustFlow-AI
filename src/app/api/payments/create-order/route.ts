@@ -2,12 +2,13 @@ import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {currentUser} from '@/lib/auth';
 import {db} from '@/lib/db';
-import {createPayPalOrder,paypalConfigured,PayPalRequestError} from '@/lib/paypal';
+import {createPayPalOrder,getPayPalOrder,paypalConfigured,PayPalRequestError} from '@/lib/paypal';
 import {createAndPersistPayPalOrder,PaymentPersistenceError} from '@/lib/paypal-order-persistence';
 import {audit} from '@/lib/events';
 import {mutationError,rateLimit} from '@/lib/security';
 import {canInitiatePayment} from '@/lib/workflow-authorization';
-const input=z.object({dealId:z.string().min(1).max(100)});
+import {paypalClientIdsMatch,resolvePayPalCheckoutConfiguration,paypalPayeeMatchesConfiguredMerchant} from '@/lib/paypal-checkout-config';
+const input=z.object({dealId:z.string().min(1).max(100),clientId:z.string().min(1).max(200)});
 export async function POST(req:Request){
  const invalid=mutationError(req);if(invalid)return invalid;
  const user=await currentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
@@ -15,19 +16,52 @@ export async function POST(req:Request){
  if(!paypalConfigured())return NextResponse.json({error:'PayPal Sandbox configuration required.',configured:false},{status:503});
  let body:unknown;try{body=await req.json()}catch{return NextResponse.json({error:'Invalid JSON.'},{status:400})}
  const value=input.safeParse(body);if(!value.success)return NextResponse.json({error:'Invalid deal.'},{status:400});
+  if(!paypalClientIdsMatch(value.data.clientId,process.env.PAYPAL_CLIENT_ID))return NextResponse.json({error:'The PayPal browser client ID does not match the server PayPal credentials. Set NEXT_PUBLIC_PAYPAL_CLIENT_ID to the same Sandbox app as PAYPAL_CLIENT_ID, then redeploy.'},{status:409});
  try{
   const deal=await db.deal.findFirst({where:{id:value.data.dealId,buyerId:user.id},include:{agreement:true,provider:{select:{paypalMerchantEmail:true}}}});
   if(!deal)return NextResponse.json({error:'Deal not found or you are not the buyer.'},{status:404});
   if(!deal.agreement)return NextResponse.json({error:'An agreement must exist before checkout.'},{status:409});
   if(!canInitiatePayment(user.id,deal.buyerId,deal.agreement?.buyerApprovedAt,deal.agreement?.providerApprovedAt))return NextResponse.json({error:'Both parties must approve the agreement first.'},{status:409});
   if(!deal.providerId||!deal.provider?.paypalMerchantEmail)return NextResponse.json({error:'The provider must configure a PayPal receiving account before checkout. TrustFlow does not collect or hold the payment.'},{status:409});
-  const existing=await db.payment.findFirst({where:{dealId:deal.id,agreementVersion:deal.agreement.version},orderBy:{createdAt:'desc'}});
-  if(existing&&existing.status!=='FAILED'&&existing.status!=='CANCELLED')return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,status:existing.status,reused:true});
+  const checkout=resolvePayPalCheckoutConfiguration(deal.provider.paypalMerchantEmail);
+  if(!checkout.ok)return NextResponse.json({error:checkout.message,code:checkout.code},{status:503});
+  let existing=await db.payment.findFirst({where:{dealId:deal.id,agreementVersion:deal.agreement.version},orderBy:{createdAt:'desc'}});
+  if(existing&&existing.status!=='FAILED'&&existing.status!=='CANCELLED'){
+   if(existing.status==='CREATED'){
+    try{
+     const paypalOrder=await getPayPalOrder(existing.paypalOrderId);
+     if(paypalOrder.status==='COMPLETED'){
+      return NextResponse.json({error:'PayPal reports this order as completed. Reload the deal so payment verification can be refreshed.'},{status:409});
+     }else if(paypalOrder.status==='VOIDED'){
+      const retired=await db.payment.updateMany({where:{id:existing.id,status:'CREATED'},data:{status:'CANCELLED',failureReason:'Previous PayPal order was voided before checkout.'}});
+      if(!retired.count)return NextResponse.json({error:'Checkout changed while being refreshed. Reload the deal and retry.'},{status:409});
+      existing={...existing,status:'CANCELLED'};
+     }else{
+      const sellerMatches=existing.paypalSellerEmail?.toLowerCase()===checkout.merchantEmail&&existing.paypalSellerMerchantId===checkout.merchantId&&paypalPayeeMatchesConfiguredMerchant(paypalOrder.purchase_units?.[0]?.payee,checkout.merchantEmail,checkout.merchantId);
+      if(!sellerMatches){
+      const retired=await db.payment.updateMany({where:{id:existing.id,status:'CREATED'},data:{status:'CANCELLED',failureReason:'Previous PayPal order was created for a different or unverified receiving merchant.'}});
+      if(!retired.count)return NextResponse.json({error:'Checkout changed while being refreshed. Reload the deal and retry.'},{status:409});
+      existing={...existing,status:'CANCELLED'};
+      }else{
+       return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,status:existing.status,reused:true});
+      }
+     }
+    }catch(error){
+     if(!(error instanceof PayPalRequestError&&error.status===404&&error.issue==='INVALID_RESOURCE_ID'))throw error;
+     console.warn('[TrustFlow][payment:create-order] Retiring inaccessible pending PayPal order',{dealId:deal.id,paypalOrderId:existing.paypalOrderId,agreementVersion:deal.agreement.version});
+     const retired=await db.payment.updateMany({where:{id:existing.id,status:'CREATED'},data:{status:'CANCELLED',failureReason:'Previous PayPal order is not accessible using the current PayPal credentials.'}});
+     if(!retired.count)return NextResponse.json({error:'Checkout changed while being refreshed. Reload the deal and retry.'},{status:409});
+     existing={...existing,status:'CANCELLED'};
+    }
+   }else{
+    return NextResponse.json({id:existing.paypalOrderId,amount:existing.amount,currency:existing.currency,status:existing.status,reused:true});
+   }
+  }
   if(existing?.status==='FAILED'&&existing.failureReason!=='PAYMENT.CAPTURE.DENIED')return NextResponse.json({error:'This PayPal attempt requires review before another charge can be initiated.'},{status:409});
   const attempt=(existing?.attempt||0)+1;
   const {order,payment}=await createAndPersistPayPalOrder({
    dealId:deal.id,buyerId:deal.buyerId,providerId:deal.providerId,title:deal.title,amount:deal.amount,
-   currency:deal.currency,payeeEmail:deal.provider.paypalMerchantEmail,agreementVersion:deal.agreement.version,attempt,
+   currency:deal.currency,payeeEmail:checkout.merchantEmail,payeeMerchantId:checkout.merchantId,agreementVersion:deal.agreement.version,attempt,
   },{
    createPayPalOrder,
    createPayment:data=>db.payment.create({data}),

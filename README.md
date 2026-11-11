@@ -12,7 +12,7 @@ TrustFlow turns a work description into a reviewable agreement, milestones, and 
 - Provider evidence submissions with validated public URL references and private file attachments (JPEG, PNG, WebP, PDF, TXT; 4 MB each), immutable submission history, and participant-authorized downloads.
 - Groq advisory evidence assessments validated with Zod against the exact approved agreement version and that version's acceptance criteria. Assessments are persisted separately from submissions; missing credentials and failed AI calls leave evidence saved and retryable.
 - Buyer revision requests and participant human-review requests; AI cannot approve agreements or authorize payments.
-- PayPal REST Orders v2 CAPTURE checkout, OAuth token reuse, hashed PayPal-Request-Id idempotency keys, server-side order/capture reconciliation, exact amount/currency/deal matching, unique capture IDs, and signed/idempotent webhook event processing. Providers configure their PayPal merchant receiving email; orders name that provider as the payee so checkout proceeds are routed directly to the provider account. This requires PayPal account/partner permissions for payee routing. Use Sandbox credentials during development.
+- PayPal REST Orders v2 CAPTURE checkout, OAuth token reuse, hashed PayPal-Request-Id idempotency keys, server-side order/capture/seller reconciliation, exact amount/currency/deal matching, unique capture IDs, and signed/idempotent webhook event processing. Checkout currently supports only one Standard Checkout merchant: the provider email must match the Business account that owns the REST app, and TrustFlow leaves the PayPal `payee` field unset so PayPal routes funds to that app owner. Checkout fails closed unless the Sandbox mode, merchant email, and 13-character merchant ID are explicitly configured and match the returned order. Separate provider accounts require approved PayPal Multiparty partner onboarding; entering a seller email alone is insufficient. Use Sandbox credentials during development.
 - Persistent participant-scoped notifications with unread counts, pagination, mark-read actions, and a deal activity timeline.
 - Deal discussion messages for participant negotiation, contextual floating Ask AI, neutral AI dispute summaries, dock-style workspace navigation, and drag-and-drop milestone ordering with keyboard controls.
 - Gmail SMTP transactional email via Nodemailer with React Email templates, idempotent EmailLog records, and retry processing. Email states record queued, sending, SMTP-accepted, or failed; SMTP acceptance does not confirm inbox delivery. Gmail SMTP does not provide delivery, open, click, or bounce webhooks.
@@ -37,7 +37,7 @@ npx prisma db push
 npm run dev
 ```
 
-Open http://localhost:3000 for the public landing page. Create an account at `/register` and open the authenticated workspace at `/dashboard`. The first account can create a deal after the provider has also registered. The provider must set their receiving PayPal merchant email in the deal workspace before the buyer can check out. Sign in at `/login`. The workspace derives the buyer identity from the authenticated session.
+Open http://localhost:3000 for the public landing page. Create an account at `/register` and open the authenticated workspace at `/dashboard`. The first account can create a deal after the provider has also registered. Standard PayPal checkout is available only when the provider receiving email matches the one Sandbox Business account that owns the REST app. Do not enable it until the account owner, merchant ID, and REST app/client ID match in PayPal Developer. Sign in at `/login`. The workspace derives the buyer identity from the authenticated session.
 
 If login or registration returns HTTP 503, open [http://localhost:3000/api/health/database](http://localhost:3000/api/health/database). It reports whether `DATABASE_URL` is missing or MongoDB is unreachable. Confirm the Atlas cluster is running, the current network/IP is allowed in Atlas Network Access, and the username/password in `DATABASE_URL` are correct (URL-encode special characters in the password). Then run `npx prisma db push` and restart `npm run dev`. The auth API also writes the detailed server-side failure to the terminal without logging connection credentials.
 
@@ -54,9 +54,11 @@ Copy `.env.example` to `.env` and configure only the integrations you intend to 
 | `GROQ_API_KEY`, `GROQ_MODEL` | Server-side AI analysis and evidence assessment |
 | `OPENAI_API_KEY`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS` | Embeddings and semantic retrieval |
 | `PAYPAL_ENV` | `sandbox` for development; `live` only after production review |
-| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Server-side PayPal credentials |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Server-side credentials from the same Sandbox REST app as the browser client ID |
+| `PAYPAL_INTEGRATION_MODE` | Set to `standard` only for the single Business account that owns the REST app; Multiparty is not enabled |
+| `PAYPAL_STANDARD_MERCHANT_EMAIL`, `PAYPAL_STANDARD_MERCHANT_ID` | Business email and 13-character merchant ID verified in PayPal Sandbox for the REST app owner |
 | `PAYPAL_WEBHOOK_ID` | PayPal webhook configuration, if webhook processing is enabled |
-| `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | PayPal browser SDK client ID |
+| `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | PayPal browser SDK client ID; must match `PAYPAL_CLIENT_ID` and the same Sandbox REST app |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | SMTP server settings; Gmail uses `smtp.gmail.com`, port `587`, and `false` for STARTTLS |
 | `SMTP_USER`, `SMTP_PASSWORD` | Gmail address and Google App Password; never use your regular Gmail password |
 | `EMAIL_FROM` | Sender label and address, such as `TrustFlow AI <your-gmail@gmail.com>` |

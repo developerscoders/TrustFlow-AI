@@ -1,4 +1,5 @@
 import {randomUUID,createHash} from 'node:crypto';
+import {paypalPayeeMatchesConfiguredMerchant} from './paypal-checkout-config';
 
 const apiBase=()=>process.env.PAYPAL_ENV==='live'?'https://api-m.paypal.com':'https://api-m.sandbox.paypal.com';
 export const paypalConfigured=()=>Boolean(process.env.PAYPAL_CLIENT_ID&&process.env.PAYPAL_CLIENT_SECRET);
@@ -31,9 +32,11 @@ export async function paypalRequest<T=any>(path:string,method='GET',body?:unknow
  if(!response.ok){const issue=String(data?.details?.[0]?.issue||data?.name||'PAYPAL_ERROR').replace(/[^A-Z0-9_ -]/gi,'').slice(0,100);throw new PayPalRequestError(`PayPal rejected the checkout order: ${issue} (${response.status}).`,'api',response.status,issue)}
  return data as T;
 }
-export async function createPayPalOrder(input:{dealId:string;title:string;amount:number;currency:string;payeeEmail:string;requestId?:string}){
+export async function createPayPalOrder(input:{dealId:string;title:string;amount:number;currency:string;expectedMerchantEmail:string;expectedMerchantId:string;requestId?:string}){
  const requestId=createHash('sha256').update(input.requestId||randomUUID()).digest('hex').slice(0,32);
- return paypalRequest<{id:string;status:string}>('/v2/checkout/orders','POST',{intent:'CAPTURE',purchase_units:[{reference_id:input.dealId,custom_id:input.dealId,payee:{email_address:input.payeeEmail},description:input.title.slice(0,127),amount:{currency_code:input.currency,value:(input.amount/100).toFixed(2)}}]},requestId);
+ const order=await paypalRequest<{id:string;status:string;purchase_units?:Array<{payee?:{email_address?:string;merchant_id?:string}}>} >('/v2/checkout/orders','POST',{intent:'CAPTURE',purchase_units:[{reference_id:input.dealId,custom_id:input.dealId,description:input.title.slice(0,127),amount:{currency_code:input.currency,value:(input.amount/100).toFixed(2)}}]},requestId);
+ if(!paypalPayeeMatchesConfiguredMerchant(order.purchase_units?.[0]?.payee,input.expectedMerchantEmail,input.expectedMerchantId))throw new PayPalRequestError('PayPal order recipient does not match the configured Sandbox Business merchant. No local payment was recorded.','api',502,'PAYEE_MERCHANT_MISMATCH');
+ return order;
 }
 export async function capturePayPalOrder(orderId:string,requestId:string){
  const idempotencyKey=createHash('sha256').update(requestId).digest('hex').slice(0,32);

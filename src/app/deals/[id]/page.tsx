@@ -47,7 +47,7 @@ type Deal = {
     } | null;
     milestones: Mile[];
     submissions: Sub[];
-    payments: { id: string; status: string }[];
+    payments: { id: string; paypalOrderId: string; status: string }[];
       emailLogs: {
           id: string;
           type: string;
@@ -321,7 +321,7 @@ export default function DealPage() {
             : paymentStatus === 'CANCELLED'
                 ? 'PayPal checkout was cancelled.'
                 : paymentStatus === 'CAPTURE_PENDING'
-                    ? 'PayPal capture is being verified.'
+                    ? 'PayPal returned a pending capture. TrustFlow is checking the order again.'
                     : paymentStatus === 'APPROVED'
                         ? 'PayPal order approved; awaiting capture.'
                         : 'No verified payment yet.';
@@ -628,7 +628,7 @@ export default function DealPage() {
                                 )}
                             </div>
                         ) : null}
-                        {isBuyer && !paid && <PayPalCheckout dealId={id} onVerified={() => void load()} />}
+                        {isBuyer && !paid && <PayPalCheckout dealId={id} pendingOrderId={paymentStatus === 'CAPTURE_PENDING' || paymentStatus === 'APPROVED' ? deal.payments[0]?.paypalOrderId : undefined} onVerified={() => void load()} />}
                     </section>
 
                     <section className="card" style={{ padding: 21 }}>

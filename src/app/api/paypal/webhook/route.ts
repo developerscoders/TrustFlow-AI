@@ -24,7 +24,7 @@ export async function POST(req:Request){
    const payment=await db.payment.findUnique({where:{paypalOrderId:orderId},include:{deal:true}});
    if(!payment)throw new Error('Payment order not found for capture event.');
    const order=await getPayPalOrder(orderId);
-   if(!validWebhookCapture(event,{orderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency})||!verifyCompletedOrder(order,{orderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency},capture.id))throw new Error('Capture amount, currency, order reference or status did not reconcile.');
+   if(!validWebhookCapture(event,{orderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency})||!verifyCompletedOrder(order,{orderId,dealId:payment.dealId,amount:payment.amount,currency:payment.currency,paypalSellerEmail:payment.paypalSellerEmail,paypalSellerMerchantId:payment.paypalSellerMerchantId},capture.id))throw new Error('Capture amount, currency, order reference, seller or status did not reconcile.');
    const changed=await db.payment.updateMany({where:{id:payment.id,status:{not:'COMPLETED'}},data:{status:'COMPLETED',captureId:capture.id,paypalPayerId:order.payer?.payer_id||null,failureReason:null}});
    if(changed.count){
     await audit(payment.dealId,'PAYMENT_VERIFIED','PayPal capture webhook verified against the order.','PayPal',undefined,{type:'PAYMENT',id:payment.id});

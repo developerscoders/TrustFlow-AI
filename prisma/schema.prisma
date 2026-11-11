@@ -232,6 +232,10 @@ model Payment {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   dealId String @db.ObjectId
   paypalOrderId String @unique
+  // Expected receiving Business account for this payment. Older rows are
+  // treated as legacy and are not reused for a newly configured checkout.
+  paypalSellerEmail String?
+  paypalSellerMerchantId String?
   // Pending rows carry `pending:<paypalOrderId>` in this unique field until a
   // verified capture replaces it; MongoDB unique indexes treat missing values alike.
   captureId String? @unique
