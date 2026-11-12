@@ -47,7 +47,7 @@ type Deal = {
     } | null;
     milestones: Mile[];
     submissions: Sub[];
-    payments: { id: string; paypalOrderId: string; status: string }[];
+    payments: { id: string; paypalOrderId: string; status: string; captureId: string | null; failureReason: string | null; amount: number; currency: string }[];
       emailLogs: {
           id: string;
           type: string;
@@ -321,7 +321,7 @@ export default function DealPage() {
             : paymentStatus === 'CANCELLED'
                 ? 'PayPal checkout was cancelled.'
                 : paymentStatus === 'CAPTURE_PENDING'
-                    ? 'PayPal returned a pending capture. TrustFlow is checking the order again.'
+                    ? (deal.payments[0]?.failureReason === 'PAYPAL_CAPTURE_PENDING:PENDING_REVIEW' ? 'Payment is under PayPal review. The capture is saved as pending; it is not marked successful until PayPal confirms it.' : 'PayPal returned a pending capture. TrustFlow saved it and is checking for final confirmation.')
                     : paymentStatus === 'APPROVED'
                         ? 'PayPal order approved; awaiting capture.'
                         : 'No verified payment yet.';
@@ -607,6 +607,8 @@ export default function DealPage() {
                             Deal total: {(deal.amount / 100).toFixed(2)} {deal.currency}
                         </p>
                         <p>{paymentMessage}</p>
+                        {deal.payments[0]?.captureId && <p className="dealmeta">PayPal capture ID: {deal.payments[0].captureId}</p>}
+                        {deal.payments[0]?.failureReason?.startsWith('PAYPAL_CAPTURE_PENDING:') && <p className="dealmeta">PayPal capture reason: {deal.payments[0].failureReason.replace('PAYPAL_CAPTURE_PENDING:', '').replaceAll('_', ' ').toLowerCase()}</p>}
                         <p className="dealmeta">
                             PayPal processes payment directly. TrustFlow does not hold funds or guarantee delivery.
                         </p>

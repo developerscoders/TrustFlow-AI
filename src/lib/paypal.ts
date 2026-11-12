@@ -42,6 +42,7 @@ export async function capturePayPalOrder(orderId:string,requestId:string){
  return paypalRequest<any>(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,'POST',{},idempotencyKey);
 }
 export async function getPayPalOrder(orderId:string){return paypalRequest<any>(`/v2/checkout/orders/${encodeURIComponent(orderId)}`);}
+export async function getPayPalCapture(captureId:string){return paypalRequest<any>(`/v2/payments/captures/${encodeURIComponent(captureId)}`);}
 export async function verifyPayPalWebhook(headers:Headers,event:unknown){
  if(!process.env.PAYPAL_WEBHOOK_ID)throw new Error('PAYPAL_WEBHOOK_ID is not configured.');
  const required=['paypal-auth-algo','paypal-cert-url','paypal-transmission-id','paypal-transmission-sig','paypal-transmission-time'] as const;
