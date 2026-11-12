@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createAndPersistPayPalOrder,type PaymentCreateData,type PaymentRecord} from '../src/lib/paypal-order-persistence';
 
-const input={dealId:'6af346878e177d97a70b89eb',buyerId:'6af223ec0b383686eec41077',providerId:'6af223ec0b383686eec41088',title:'Website delivery',amount:55500,currency:'USD',payeeEmail:'provider@example.com',payeeMerchantId:'NS6Z437VVRNUS',agreementVersion:1,attempt:1};
+const input={dealId:'6af346878e177d97a70b89eb',buyerId:'6af223ec0b383686eec41077',providerId:'6af223ec0b383686eec41088',title:'Website delivery',amount:55500,currency:'USD',agreementVersion:1,attempt:1};
 const record=(data:PaymentCreateData):PaymentRecord=>({id:'6af346878e177d97a70b8999',...data});
 
-test('persists a PayPal order as CREATED with correct deal terms and verified seller identity',async()=>{
+test('persists a Standard Checkout order without hardcoded seller identity',async()=>{
  let sent:unknown,created:PaymentCreateData|undefined;
  const result=await createAndPersistPayPalOrder(input,{
   createPayPalOrder:async data=>{sent=data;return{id:'ORDER-OK',status:'CREATED'}},
@@ -20,10 +20,21 @@ test('persists a PayPal order as CREATED with correct deal terms and verified se
  assert.equal(created?.currency,input.currency);
  assert.equal(created?.agreementVersion,input.agreementVersion);
  assert.equal(created?.status,'CREATED');
- assert.equal((sent as {expectedMerchantEmail:string}).expectedMerchantEmail,input.payeeEmail);
- assert.equal((sent as {expectedMerchantId:string}).expectedMerchantId,input.payeeMerchantId);
- assert.equal(created?.paypalSellerEmail,input.payeeEmail);
- assert.equal(created?.paypalSellerMerchantId,input.payeeMerchantId);
+ assert.equal('expectedMerchantEmail' in (sent as object),false);
+ assert.equal('expectedMerchantId' in (sent as object),false);
+ assert.equal(created?.paypalSellerEmail,null);
+ assert.equal(created?.paypalSellerMerchantId,null);
+});
+
+test('persists PayPal returned payee details only as optional audit metadata',async()=>{
+ let created:PaymentCreateData|undefined;
+ await createAndPersistPayPalOrder(input,{
+  createPayPalOrder:async()=>({id:'ORDER-PAYEE',status:'CREATED',purchase_units:[{payee:{email_address:'sandbox-merchant@example.com',merchant_id:'ABC123'}}]}),
+  createPayment:async data=>{created=data;return record(data)},
+  findPaymentByPayPalOrderId:async()=>null,
+ });
+ assert.equal(created?.paypalSellerEmail,'sandbox-merchant@example.com');
+ assert.equal(created?.paypalSellerMerchantId,'ABC123');
 });
 
 test('database failure after PayPal creation surfaces the Prisma code and does not mark payment completed',async()=>{
@@ -65,7 +76,7 @@ test('retry after an unrecorded PayPal order reuses the stable PayPal idempotenc
 });
 
 test('a recovered PayPal order is reused only when it matches the same deal terms',async()=>{
-  const expected=record({dealId:input.dealId,paypalOrderId:'ORDER-RECOVERED',paypalSellerEmail:input.payeeEmail,paypalSellerMerchantId:input.payeeMerchantId,captureId:'pending:ORDER-RECOVERED',amount:input.amount,currency:input.currency,status:'CREATED',agreementVersion:input.agreementVersion,attempt:input.attempt});
+ const expected=record({dealId:input.dealId,paypalOrderId:'ORDER-RECOVERED',paypalSellerEmail:null,paypalSellerMerchantId:null,captureId:'pending:ORDER-RECOVERED',amount:input.amount,currency:input.currency,status:'CREATED',agreementVersion:input.agreementVersion,attempt:input.attempt});
  const original=console.error;console.error=()=>{};
  try{
   const result=await createAndPersistPayPalOrder(input,{

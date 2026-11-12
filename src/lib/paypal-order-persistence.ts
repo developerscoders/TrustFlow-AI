@@ -1,11 +1,10 @@
-export type PayPalOrderResult={id:string;status:string};
+export type PayPalOrderResult={id:string;status:string;purchase_units?:Array<{payee?:{email_address?:string;merchant_id?:string}} >};
 export type PaymentRecord={id:string;paypalOrderId:string;dealId:string;amount:number;currency:string;status:string;agreementVersion:number;attempt:number|null;paypalSellerEmail?:string|null;paypalSellerMerchantId?:string|null};
-export type PaymentCreateData={dealId:string;paypalOrderId:string;paypalSellerEmail:string;paypalSellerMerchantId:string;captureId:string;amount:number;currency:string;status:'CREATED';agreementVersion:number;attempt:number};
+export type PaymentCreateData={dealId:string;paypalOrderId:string;paypalSellerEmail:string|null;paypalSellerMerchantId:string|null;captureId:string;amount:number;currency:string;status:'CREATED';agreementVersion:number;attempt:number};
 
 export class PaymentPersistenceError extends Error{
   constructor(message:string,readonly prismaCode:string|null,options?:ErrorOptions){super(message,options);this.name='PaymentPersistenceError'}
 }
-
 function prismaCode(error:unknown):string|null{
   if(!error||typeof error!=='object')return null;
   const code=(error as {code?:unknown}).code;
@@ -18,23 +17,23 @@ function prismaTarget(error:unknown):string|null{
   if(Array.isArray(target))return target.filter((part):part is string=>typeof part==='string').join(',').slice(0,160)||null;
   return null;
 }
-
 export async function createAndPersistPayPalOrder(input:{
-  dealId:string;buyerId:string;providerId:string;title:string;amount:number;currency:string;payeeEmail:string;payeeMerchantId:string;agreementVersion:number;attempt:number;
+  dealId:string;buyerId:string;providerId:string;title:string;amount:number;currency:string;agreementVersion:number;attempt:number;
 },deps:{
-  createPayPalOrder:(input:{dealId:string;title:string;amount:number;currency:string;expectedMerchantEmail:string;expectedMerchantId:string;requestId:string})=>Promise<PayPalOrderResult>;
+  createPayPalOrder:(input:{dealId:string;title:string;amount:number;currency:string;requestId:string})=>Promise<PayPalOrderResult>;
   createPayment:(data:PaymentCreateData)=>Promise<PaymentRecord>;
   findPaymentByPayPalOrderId:(paypalOrderId:string)=>Promise<PaymentRecord|null>;
 }){
-  const requestId=`trustflow-order-${input.dealId}-v${input.agreementVersion}-a${input.attempt}-m${input.payeeMerchantId}`;
+  const requestId=`trustflow-order-${input.dealId}-v${input.agreementVersion}-a${input.attempt}`;
   const order=await deps.createPayPalOrder({
-    dealId:input.dealId,title:input.title,amount:input.amount,currency:input.currency,
-    expectedMerchantEmail:input.payeeEmail,expectedMerchantId:input.payeeMerchantId,requestId,
+    dealId:input.dealId,title:input.title,amount:input.amount,currency:input.currency,requestId,
   });
   if(!order.id)throw new Error('PayPal did not return an order ID.');
-
+  const payee=order.purchase_units?.[0]?.payee;
+  const sellerEmail=typeof payee?.email_address==='string'?payee.email_address.trim().toLowerCase():null;
+  const sellerMerchantId=typeof payee?.merchant_id==='string'?payee.merchant_id:null;
   const paymentData:PaymentCreateData={
-    dealId:input.dealId,paypalOrderId:order.id,paypalSellerEmail:input.payeeEmail.toLowerCase(),paypalSellerMerchantId:input.payeeMerchantId,captureId:`pending:${order.id}`,amount:input.amount,currency:input.currency,
+    dealId:input.dealId,paypalOrderId:order.id,paypalSellerEmail:sellerEmail,paypalSellerMerchantId:sellerMerchantId,captureId:`pending:${order.id}`,amount:input.amount,currency:input.currency,
     status:'CREATED',agreementVersion:input.agreementVersion,attempt:input.attempt,
   };
   try{
@@ -55,7 +54,7 @@ export async function createAndPersistPayPalOrder(input:{
       throw new PaymentPersistenceError(`PayPal order ${order.id} exists, but local persistence failed (Prisma ${code||'UNKNOWN'}); idempotency lookup also failed.`,code,{cause:createError});
     }
     if(existing){
-      const matches=existing.dealId===input.dealId&&existing.amount===input.amount&&existing.currency===input.currency&&existing.agreementVersion===input.agreementVersion&&existing.paypalSellerEmail?.toLowerCase()===input.payeeEmail.toLowerCase()&&existing.paypalSellerMerchantId===input.payeeMerchantId;
+      const matches=existing.dealId===input.dealId&&existing.amount===input.amount&&existing.currency===input.currency&&existing.agreementVersion===input.agreementVersion;
       if(matches)return {order,payment:existing,reused:true};
       throw new PaymentPersistenceError(`PayPal order ${order.id} is already recorded against different deal terms; checkout was stopped.`,code,{cause:createError});
     }
