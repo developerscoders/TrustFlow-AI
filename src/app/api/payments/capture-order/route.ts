@@ -47,8 +47,8 @@ export async function POST(req:Request){
   }
   if(!verified){
    if(capture?.status==='PENDING'||order.status==='APPROVED'||order.status==='COMPLETED'){
-    await db.payment.updateMany({where:{id:payment.id,status:{not:'COMPLETED'}},data:{status:'CAPTURE_PENDING',failureReason:null}});
-    return NextResponse.json({status:'CAPTURE_PENDING',verified:false,message:'PayPal has not exposed a final completed capture yet.'},{status:202});
+    await db.payment.updateMany({where:{id:payment.id,status:{not:'COMPLETED'}},data:{status:'CAPTURE_PENDING',...(capture?.id?{captureId:capture.id}:{}),failureReason:capture?.status==='PENDING'?`PAYPAL_CAPTURE_PENDING:${capture.status_details?.reason||'PENDING'}`:'PAYPAL_ORDER_NOT_FINAL'}});
+    return NextResponse.json({status:'CAPTURE_PENDING',verified:false,captureId:capture?.id||null,reason:capture?.status_details?.reason||null,message:capture?.status_details?.reason==='PENDING_REVIEW'?'PayPal is reviewing this capture. TrustFlow has saved the pending capture and will update the payment after PayPal confirms it.':'PayPal has not returned final capture confirmation yet.'},{status:202});
    }
    return NextResponse.json({error:'PayPal order is not ready for capture verification.'},{status:409});
   }
